@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
 import { ApiError } from '../api/http'
-import { listMyWorkspaces } from '../api/workspaces'
+import { listJoinedWorkspaces, listMyWorkspaces } from '../api/workspaces'
 import type { WorkspaceResponse } from '../types/workspace'
 
 export function useMyWorkspaces() {
-  const [workspaces, setWorkspaces] = useState<WorkspaceResponse[]>([])
+  const [owned, setOwned] = useState<WorkspaceResponse[]>([])
+  const [joined, setJoined] = useState<WorkspaceResponse[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -15,9 +16,13 @@ export function useMyWorkspaces() {
       setLoading(true)
       setError('')
       try {
-        const items = await listMyWorkspaces()
+        const [ownedItems, joinedItems] = await Promise.all([
+          listMyWorkspaces(),
+          listJoinedWorkspaces(),
+        ])
         if (!cancelled) {
-          setWorkspaces(items)
+          setOwned(ownedItems)
+          setJoined(joinedItems)
         }
       } catch (caught) {
         if (!cancelled) {
@@ -40,5 +45,5 @@ export function useMyWorkspaces() {
     }
   }, [])
 
-  return { workspaces, loading, error }
+  return { owned, joined, loading, error }
 }

@@ -45,7 +45,7 @@ export default function CreateWorkspacePage() {
           </Submit>
         </Form>
 
-        <LaterLink to="/workspaces">내 워크스페이스로</LaterLink>
+        <LaterLink to="/workspaces">워크스페이스 목록으로</LaterLink>
       </Card>
     </Container>
   )

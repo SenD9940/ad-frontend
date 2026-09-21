@@ -33,6 +33,14 @@ export async function existsUserByEmail(email: string): Promise<boolean> {
   return data.body
 }
 
+export async function getMe(): Promise<UserResponse> {
+  const { data } = await http.get<Api<UserResponse>>('/api/users/me')
+  if (!data?.body?.id) {
+    throw new ApiError('사용자 정보 응답이 올바르지 않습니다.')
+  }
+  return data.body
+}
+
 function omitBlank(request: UserRegisterRequest): UserRegisterRequest {
   return Object.fromEntries(
     Object.entries(request).filter(([, value]) => {

@@ -4,7 +4,8 @@ import { useMyWorkspaces } from '../../hooks/useMyWorkspaces'
 import type { WorkspaceResponse } from '../../types/workspace'
 
 export default function WorkspaceListPage() {
-  const { workspaces, loading, error } = useMyWorkspaces()
+  const { owned, joined, loading, error } = useMyWorkspaces()
+  const isEmpty = !loading && !error && owned.length === 0 && joined.length === 0
 
   return (
     <Container>
@@ -12,8 +13,8 @@ export default function WorkspaceListPage() {
         <HeaderRow>
           <Intro>
             <Eyebrow>United Ad</Eyebrow>
-            <Title>내 워크스페이스</Title>
-            <Lead>소유한 워크스페이스를 보고, 새로 만들거나 멤버를 초대하세요.</Lead>
+            <Title>워크스페이스</Title>
+            <Lead>내가 만든 공간과 초대를 수락해 참여 중인 공간을 나눠 보여 줍니다.</Lead>
           </Intro>
           <CreateLink to="/workspaces/new">새 워크스페이스</CreateLink>
         </HeaderRow>
@@ -24,26 +25,53 @@ export default function WorkspaceListPage() {
 
         {loading ? (
           <Status>목록을 불러오는 중...</Status>
-        ) : workspaces.length === 0 && !error ? (
+        ) : isEmpty ? (
           <Empty>
             <EmptyTitle>아직 워크스페이스가 없습니다</EmptyTitle>
-            <EmptyLead>팀을 위한 공간을 만들고 멤버를 초대하세요.</EmptyLead>
+            <EmptyLead>팀을 위한 공간을 만들거나, 초대를 수락하면 여기에 나타납니다.</EmptyLead>
             <EmptyLink to="/workspaces/new">워크스페이스 만들기</EmptyLink>
           </Empty>
         ) : (
-          <List aria-label="내 워크스페이스">
-            {workspaces.map((workspace) => (
-              <Item key={workspace.id}>
-                <ItemBody>
-                  <ItemName>{workspace.name}</ItemName>
-                  <ItemMeta>{formatRegisteredAt(workspace)}</ItemMeta>
-                </ItemBody>
-                <InviteLink to={`/workspaces/${workspace.id}/invite`}>
-                  멤버 초대
-                </InviteLink>
-              </Item>
-            ))}
-          </List>
+          <>
+            <Section>
+              <SectionTitle>내 워크스페이스</SectionTitle>
+              {owned.length === 0 ? (
+                <EmptyNote>아직 만든 워크스페이스가 없습니다.</EmptyNote>
+              ) : (
+                <List aria-label="내 워크스페이스">
+                  {owned.map((workspace) => (
+                    <Item key={workspace.id}>
+                      <ItemBody>
+                        <ItemName>{workspace.name}</ItemName>
+                        <ItemMeta>{formatRegisteredAt(workspace)}</ItemMeta>
+                      </ItemBody>
+                      <InviteLink to={`/workspaces/${workspace.id}/invite`}>
+                        멤버 관리
+                      </InviteLink>
+                    </Item>
+                  ))}
+                </List>
+              )}
+            </Section>
+
+            <Section>
+              <SectionTitle>참여 워크스페이스</SectionTitle>
+              {joined.length === 0 ? (
+                <EmptyNote>아직 참여 중인 워크스페이스가 없습니다.</EmptyNote>
+              ) : (
+                <List aria-label="참여 워크스페이스">
+                  {joined.map((workspace) => (
+                    <Item key={workspace.id}>
+                      <ItemBody>
+                        <ItemName>{workspace.name}</ItemName>
+                        <ItemMeta>{formatRegisteredAt(workspace)}</ItemMeta>
+                      </ItemBody>
+                    </Item>
+                  ))}
+                </List>
+              )}
+            </Section>
+          </>
         )}
       </Card>
     </Container>
@@ -181,11 +209,25 @@ const EmptyLink = styled(Link)`
   }
 `
 
+const Section = styled.section`
+  margin-top: ${({ theme }) => theme.spacing.xl};
+`
+
+const SectionTitle = styled.h2`
+  font-size: ${({ theme }) => theme.fontSizes.lg};
+`
+
+const EmptyNote = styled.p`
+  margin-top: ${({ theme }) => theme.spacing.sm};
+  color: ${({ theme }) => theme.colors.textSecondary};
+  word-break: keep-all;
+`
+
 const List = styled.ul`
   display: flex;
   flex-direction: column;
   gap: ${({ theme }) => theme.spacing.sm};
-  margin-top: ${({ theme }) => theme.spacing.xl};
+  margin-top: ${({ theme }) => theme.spacing.md};
 `
 
 const Item = styled.li`

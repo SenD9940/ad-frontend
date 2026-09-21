@@ -10,6 +10,14 @@ export async function listMyWorkspaces(): Promise<WorkspaceResponse[]> {
   return data.body
 }
 
+export async function listJoinedWorkspaces(): Promise<WorkspaceResponse[]> {
+  const { data } = await http.get<Api<WorkspaceResponse[]>>('/api/workspaces/joined')
+  if (!Array.isArray(data?.body)) {
+    throw new ApiError('참여 워크스페이스 목록 응답이 올바르지 않습니다.')
+  }
+  return data.body
+}
+
 export async function getMyWorkspace(workspaceId: number): Promise<WorkspaceResponse> {
   const { data } = await http.get<Api<WorkspaceResponse>>(
     `/api/workspaces/${workspaceId}`,

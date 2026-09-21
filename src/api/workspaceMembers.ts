@@ -4,6 +4,7 @@ import type {
   WorkspaceMemberAcceptRequest,
   WorkspaceMemberInviteRequest,
   WorkspaceMemberInviteResponse,
+  WorkspaceMemberKickRequest,
   WorkspaceMemberResponse,
 } from '../types/workspace'
 
@@ -31,4 +32,16 @@ export async function acceptWorkspaceInvite(
     throw new ApiError('초대 수락 응답이 올바르지 않습니다.')
   }
   return data.body
+}
+
+export async function kickWorkspaceMember(
+  request: WorkspaceMemberKickRequest,
+): Promise<void> {
+  const { data } = await http.post<Api<boolean>>(
+    '/api/workspace-members/kick',
+    request,
+  )
+  if (data?.body !== true) {
+    throw new ApiError('멤버 추방 응답이 올바르지 않습니다.')
+  }
 }

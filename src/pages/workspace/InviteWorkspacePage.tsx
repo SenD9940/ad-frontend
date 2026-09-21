@@ -1,9 +1,11 @@
 import { Link } from 'react-router-dom'
 import styled from 'styled-components'
 import { useInviteWorkspaceMembers } from '../../hooks/useInviteWorkspaceMembers'
+import { useKickWorkspaceMember } from '../../hooks/useKickWorkspaceMember'
 import { INVITE_EMAIL_MAX_LENGTH } from './workspaceValidation'
 
 export default function InviteWorkspacePage() {
+  const invite = useInviteWorkspaceMembers()
   const {
     formId,
     isValidWorkspaceId,
@@ -22,7 +24,12 @@ export default function InviteWorkspacePage() {
     addEmail,
     removeEmail,
     handleSubmit,
-  } = useInviteWorkspaceMembers()
+  } = invite
+  const kick = useKickWorkspaceMember({
+    workspaceId: invite.workspaceId,
+    isValidWorkspaceId,
+    ownerUserId: workspace?.userId,
+  })
 
   if (!isValidWorkspaceId || workspaceError) {
     return (
@@ -30,9 +37,9 @@ export default function InviteWorkspacePage() {
         <Card as="section">
           <Title>워크스페이스를 찾을 수 없습니다</Title>
           <Lead>
-            {workspaceError || '주소를 확인하거나 내 워크스페이스 목록에서 다시 선택해 주세요.'}
+            {workspaceError || '주소를 확인하거나 워크스페이스 목록에서 다시 선택해 주세요.'}
           </Lead>
-          <HomeLink to="/workspaces">내 워크스페이스</HomeLink>
+          <HomeLink to="/workspaces">워크스페이스 목록</HomeLink>
         </Card>
       </Container>
     )
@@ -133,7 +140,70 @@ export default function InviteWorkspacePage() {
           </ResultList>
         ) : null}
 
-        <LaterLink to="/workspaces">내 워크스페이스로</LaterLink>
+        {kick.isOwner ? (
+          <KickForm onSubmit={kick.handleSubmit} noValidate aria-labelledby={`${kick.formId}-title`}>
+            <KickTitle id={`${kick.formId}-title`}>멤버 추방</KickTitle>
+            <KickLead>이미 참여 중인 멤버를 사용자 ID로 추방합니다. 소유자는 추방할 수 없습니다.</KickLead>
+
+            {kick.formError ? (
+              <FormAlert role="alert">{kick.formError}</FormAlert>
+            ) : null}
+            {kick.successMessage ? (
+              <SuccessAlert role="status">{kick.successMessage}</SuccessAlert>
+            ) : null}
+
+            <Field>
+              <Label htmlFor={`${kick.formId}-userId`}>사용자 ID</Label>
+              <Input
+                id={`${kick.formId}-userId`}
+                name="userId"
+                type="text"
+                inputMode="numeric"
+                value={kick.userIdInput}
+                onChange={kick.handleChange}
+                aria-invalid={Boolean(kick.inputError)}
+                aria-describedby={
+                  kick.inputError
+                    ? `${kick.formId}-userId-error`
+                    : kick.confirming
+                      ? `${kick.formId}-confirm`
+                      : undefined
+                }
+                disabled={kick.submitting}
+              />
+              {kick.inputError ? (
+                <FieldError id={`${kick.formId}-userId-error`}>{kick.inputError}</FieldError>
+              ) : kick.confirming ? (
+                <Hint id={`${kick.formId}-confirm`}>
+                  사용자 {kick.userIdInput.trim()}를 이 워크스페이스에서 추방할까요?
+                </Hint>
+              ) : (
+                <Hint>추방할 멤버의 사용자 ID를 입력하세요.</Hint>
+              )}
+            </Field>
+
+            {kick.confirming ? (
+              <ButtonRow>
+                <CancelButton
+                  type="button"
+                  onClick={kick.cancelConfirm}
+                  disabled={kick.submitting}
+                >
+                  취소
+                </CancelButton>
+                <KickSubmit type="submit" disabled={kick.submitting}>
+                  {kick.submitting ? '추방 중...' : '추방 확인'}
+                </KickSubmit>
+              </ButtonRow>
+            ) : (
+              <KickSubmit type="submit" disabled={kick.submitting || kick.meLoading}>
+                멤버 추방
+              </KickSubmit>
+            )}
+          </KickForm>
+        ) : null}
+
+        <LaterLink to="/workspaces">워크스페이스 목록으로</LaterLink>
       </Card>
     </Container>
   )
@@ -297,6 +367,67 @@ const ResultItem = styled.li<{ $success: boolean }>`
   font-size: ${({ theme }) => theme.fontSizes.sm};
   font-weight: 600;
   word-break: keep-all;
+`
+
+const KickForm = styled.form`
+  display: flex;
+  flex-direction: column;
+  gap: ${({ theme }) => theme.spacing.md};
+  margin-top: ${({ theme }) => theme.spacing.xl};
+  padding-top: ${({ theme }) => theme.spacing.xl};
+  border-top: 1px solid ${({ theme }) => theme.colors.border};
+`
+
+const KickTitle = styled.h2`
+  font-size: ${({ theme }) => theme.fontSizes.xl};
+`
+
+const KickLead = styled.p`
+  color: ${({ theme }) => theme.colors.textSecondary};
+  word-break: keep-all;
+`
+
+const SuccessAlert = styled.p`
+  padding: ${({ theme }) => theme.spacing.sm} ${({ theme }) => theme.spacing.md};
+  border: 1px solid ${({ theme }) => theme.colors.success};
+  border-radius: ${({ theme }) => theme.borderRadius.md};
+  background-color: #f0fdf4;
+  color: ${({ theme }) => theme.colors.success};
+  font-size: ${({ theme }) => theme.fontSizes.sm};
+  font-weight: 600;
+  word-break: keep-all;
+`
+
+const ButtonRow = styled.div`
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: ${({ theme }) => theme.spacing.sm};
+`
+
+const CancelButton = styled.button`
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  background-color: ${({ theme }) => theme.colors.surface};
+  color: ${({ theme }) => theme.colors.textSecondary};
+
+  &:hover:not(:disabled),
+  &:active:not(:disabled) {
+    border-color: ${({ theme }) => theme.colors.primary};
+    background-color: ${({ theme }) => theme.colors.surfaceMuted};
+    color: ${({ theme }) => theme.colors.primary};
+  }
+`
+
+const KickSubmit = styled.button`
+  width: 100%;
+  background-color: ${({ theme }) => theme.colors.error};
+
+  &:hover:not(:disabled) {
+    background-color: #991b1b;
+  }
+
+  &:active:not(:disabled) {
+    background-color: #7f1d1d;
+  }
 `
 
 const LaterLink = styled(Link)`

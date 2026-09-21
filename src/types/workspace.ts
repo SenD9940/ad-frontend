@@ -25,6 +25,11 @@ export type WorkspaceMemberAcceptRequest = {
   token: string
 }
 
+export type WorkspaceMemberKickRequest = {
+  workspaceId: number
+  userId: number
+}
+
 export type WorkspaceMemberResponse = {
   workspaceId: number
   userId: number
