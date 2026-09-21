@@ -15,7 +15,7 @@ export default function Header() {
         </Navigation>
         <Actions>
           <LoginButton type="button">로그인</LoginButton>
-          <StartLink href="/#get-started">
+          <StartLink to="/signup">
             시작하기 <span aria-hidden="true">→</span>
           </StartLink>
         </Actions>
@@ -150,7 +150,7 @@ const LoginButton = styled.button`
   }
 `
 
-const StartLink = styled.a`
+const StartLink = styled(Link)`
   display: inline-flex;
   align-items: center;
   justify-content: center;
