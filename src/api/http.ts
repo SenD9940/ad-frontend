@@ -1,6 +1,13 @@
 import axios, { isAxiosError } from 'axios'
+import type { InternalAxiosRequestConfig } from 'axios'
 import { keysToCamelCase, keysToSnakeCase } from './case'
+import { clearTokens, readAccessToken, readRefreshToken, saveTokens } from '../auth/session'
 import type { Api, ApiResult } from '../types/api'
+import type { TokenResponse } from '../types/token'
+
+type RetriableRequestConfig = InternalAxiosRequestConfig & {
+  _retry?: boolean
+}
 
 export class ApiError extends Error {
   resultCode?: number
@@ -14,6 +21,8 @@ export class ApiError extends Error {
   }
 }
 
+const REFRESH_PATH = '/open-api/users/refresh'
+
 const http = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL ?? '',
   timeout: 15_000,
@@ -22,7 +31,13 @@ const http = axios.create({
   },
 })
 
+let refreshRequest: Promise<string> | undefined
+
 http.interceptors.request.use((config) => {
+  const accessToken = readAccessToken()
+  if (accessToken && !isRefreshRequest(config.url)) {
+    config.headers.Authorization = `Bearer ${accessToken}`
+  }
   if (config.data && shouldTransform(config.data)) {
     config.data = keysToSnakeCase(config.data)
   }
@@ -34,8 +49,83 @@ http.interceptors.response.use(
     response.data = keysToCamelCase(response.data)
     return response
   },
-  (error: unknown) => Promise.reject(toApiError(error)),
+  async (error: unknown) => {
+    if (!isAxiosError(error) || !error.config) {
+      return Promise.reject(toApiError(error))
+    }
+
+    const config = error.config as RetriableRequestConfig
+    if (
+      error.response?.status === 401 &&
+      !config._retry &&
+      !shouldSkipRefresh(config.url)
+    ) {
+      config._retry = true
+      try {
+        const accessToken = await refreshAccessToken()
+        config.headers.Authorization = `Bearer ${accessToken}`
+        return http(config)
+      } catch {
+        clearTokens()
+      }
+    }
+
+    return Promise.reject(toApiError(error))
+  },
 )
+
+function shouldSkipRefresh(url?: string): boolean {
+  if (!url) {
+    return true
+  }
+  return (
+    url.includes('/open-api/users/login') ||
+    url.includes('/open-api/users/register') ||
+    isRefreshRequest(url)
+  )
+}
+
+function isRefreshRequest(url?: string): boolean {
+  return Boolean(url?.includes(REFRESH_PATH))
+}
+
+function refreshAccessToken(): Promise<string> {
+  if (!refreshRequest) {
+    refreshRequest = requestNewAccessToken().finally(() => {
+      refreshRequest = undefined
+    })
+  }
+  return refreshRequest
+}
+
+async function requestNewAccessToken(): Promise<string> {
+  const refreshToken = readRefreshToken()
+  if (!refreshToken) {
+    throw new ApiError('로그인이 필요합니다.')
+  }
+
+  const { data } = await axios.post<Api<TokenResponse>>(
+    REFRESH_PATH,
+    undefined,
+    {
+      baseURL: import.meta.env.VITE_API_BASE_URL ?? '',
+      timeout: 15_000,
+      headers: {
+        Authorization: `Bearer ${refreshToken}`,
+        'Content-Type': 'application/json',
+      },
+    },
+  )
+
+  const payload = keysToCamelCase(data)
+  const tokens = payload.body
+  if (!tokens?.accessToken || !tokens.refreshToken) {
+    throw new ApiError('토큰 갱신 응답이 올바르지 않습니다.')
+  }
+
+  saveTokens(tokens)
+  return tokens.accessToken
+}
 
 function shouldTransform(data: unknown): boolean {
   return typeof data === 'object' && data !== null && !(data instanceof FormData)

@@ -38,7 +38,7 @@ export default function SignupPage() {
             <strong>{completedEmail}</strong> 계정으로 가입되었습니다.
             이제 United Ad에서 광고 운영을 시작할 수 있습니다.
           </Lead>
-          <HomeLink to="/">홈으로 돌아가기</HomeLink>
+          <HomeLink to="/login">로그인하기</HomeLink>
         </Card>
       </Container>
     )
@@ -242,6 +242,10 @@ export default function SignupPage() {
             {submitting ? '가입 중...' : '가입하기'}
           </Submit>
         </Form>
+
+        <SwitchAuth>
+          이미 계정이 있으신가요? <Link to="/login">로그인</Link>
+        </SwitchAuth>
       </Card>
     </Container>
   )
@@ -405,5 +409,17 @@ const HomeLink = styled(Link)`
   &:hover {
     background-color: ${({ theme }) => theme.colors.primaryHover};
     color: ${({ theme }) => theme.colors.onPrimary};
+  }
+`
+
+const SwitchAuth = styled.p`
+  margin-top: ${({ theme }) => theme.spacing.lg};
+  color: ${({ theme }) => theme.colors.textSecondary};
+  font-size: ${({ theme }) => theme.fontSizes.sm};
+  text-align: center;
+
+  a {
+    font-weight: 700;
+    text-decoration: none;
   }
 `
