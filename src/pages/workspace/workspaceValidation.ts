@@ -33,17 +33,5 @@ export function parseInviteEmail(value: string): string | undefined {
   return value.trim().toLowerCase()
 }
 
-export function parseUserId(value: string): number | undefined {
-  const trimmed = value.trim()
-  if (!/^[1-9]\d*$/.test(trimmed)) {
-    return undefined
-  }
-  const id = Number(trimmed)
-  if (!Number.isSafeInteger(id)) {
-    return undefined
-  }
-  return id
-}
-
 export const INVITE_TOKEN_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$|^[A-Za-z0-9_-]{43}$/

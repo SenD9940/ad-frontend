@@ -16,11 +16,13 @@ const GlobalStyles = createGlobalStyle`
     --color-border: ${({ theme }) => theme.colors.border};
   }
 
+  html { scroll-behavior: smooth; scroll-padding-top: 7rem; }
+
   body {
     background-color: ${({ theme }) => theme.colors.background};
     color: ${({ theme }) => theme.colors.text};
     font-family: ${({ theme }) => theme.fonts.body};
-    font-size: ${({ theme }) => theme.fontSizes.base};
+    font-size: 0.9375rem;
     line-height: 1.6;
     overflow-wrap: break-word;
     -moz-osx-font-smoothing: grayscale;
@@ -29,6 +31,9 @@ const GlobalStyles = createGlobalStyle`
   #root {
     min-height: 100dvh;
   }
+
+  button, a, input, select, textarea { -webkit-tap-highlight-color: transparent; }
+  svg { flex-shrink: 0; }
 
   ::selection {
     background-color: ${({ theme }) => theme.colors.primaryLight};
@@ -80,13 +85,11 @@ const GlobalStyles = createGlobalStyle`
     transition: background-color 160ms ease, border-color 160ms ease;
   }
 
-  button:hover:not(:disabled),
-  input:is([type='button'], [type='submit'], [type='reset']):hover:not(:disabled) {
+  :where(button:hover:not(:disabled), input:is([type='button'], [type='submit'], [type='reset']):hover:not(:disabled)) {
     background-color: ${({ theme }) => theme.colors.primaryHover};
   }
 
-  button:active:not(:disabled),
-  input:is([type='button'], [type='submit'], [type='reset']):active:not(:disabled) {
+  :where(button:active:not(:disabled), input:is([type='button'], [type='submit'], [type='reset']):active:not(:disabled)) {
     background-color: ${({ theme }) => theme.colors.primaryActive};
   }
 
@@ -141,9 +144,8 @@ const GlobalStyles = createGlobalStyle`
   }
 
   @media (prefers-reduced-motion: reduce) {
-    button, input:not([type='hidden']), textarea, select {
-      transition: none;
-    }
+    html { scroll-behavior: auto; }
+    *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
   }
 `
 

@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import styled from 'styled-components'
-import { useAuth } from '../../auth/AuthProvider'
+import { useAuth } from '../../auth/AuthContext'
 
 export default function Header() {
   const { isLoggedIn, clearSession } = useAuth()
@@ -9,28 +9,23 @@ export default function Header() {
     <Container>
       <Inner>
         <Brand to="/" aria-label="United Ad 홈">
-          United Ad<span aria-hidden="true">.</span>
+          <BrandMark aria-hidden="true"><i /><i /><i /><i /></BrandMark>
+          united ad<span>.</span>
         </Brand>
         <Navigation aria-label="주 메뉴">
-          <NavigationLink href="/#hero">서비스 소개</NavigationLink>
-          <NavigationLink href="/#features">기능 소개</NavigationLink>
-          <NavigationLink href="/#reviews">리뷰</NavigationLink>
+          <NavigationLink href="/#features">주요 기능</NavigationLink>
+          <NavigationLink href="/#workflow">이용 방법</NavigationLink>
+          <NavigationLink href="/#integrations">플랫폼 연동</NavigationLink>
         </Navigation>
         <Actions>
           {isLoggedIn ? (
-            <LoginButton type="button" onClick={clearSession}>
-              로그아웃
-            </LoginButton>
+            <LoginButton type="button" onClick={clearSession}>로그아웃</LoginButton>
           ) : (
             <LoginLink to="/login">로그인</LoginLink>
           )}
-          {isLoggedIn ? (
-            <StartLink to="/workspaces">워크스페이스</StartLink>
-          ) : (
-            <StartLink to="/signup">
-              시작하기 <span aria-hidden="true">→</span>
-            </StartLink>
-          )}
+          <StartLink to={isLoggedIn ? '/workspaces' : '/signup'}>
+            {isLoggedIn ? '워크스페이스' : '시작하기'} <span aria-hidden="true">↗</span>
+          </StartLink>
         </Actions>
       </Inner>
     </Container>
@@ -42,28 +37,27 @@ const Container = styled.header`
   top: 0;
   z-index: 100;
   flex-shrink: 0;
-  background-color: ${({ theme }) => theme.colors.surface};
   border-bottom: 1px solid ${({ theme }) => theme.colors.border};
-  box-shadow: ${({ theme }) => theme.shadows.sm};
+  background: rgb(255 255 255 / 94%);
+  backdrop-filter: blur(16px);
 `
 
 const Inner = styled.div`
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  gap: ${({ theme }) => theme.spacing.lg};
+  gap: 24px;
   width: 100%;
-  min-width: 0;
-  max-width: 1200px;
-  min-height: 80px;
+  max-width: 1248px;
+  min-height: 78px;
   margin-inline: auto;
-  padding-inline: clamp(1rem, 4vw, 2rem);
-  padding-block: ${({ theme }) => theme.spacing.md};
+  padding: 12px 32px;
 
-  @media (max-width: 800px) {
+  @media (max-width: 760px) {
     grid-template-columns: auto 1fr;
-    gap: ${({ theme }) => theme.spacing.sm} ${({ theme }) => theme.spacing.md};
-    padding-block: ${({ theme }) => theme.spacing.sm};
+    gap: 4px 12px;
+    min-height: 68px;
+    padding: 10px 20px 0;
   }
 `
 
@@ -71,149 +65,123 @@ const Brand = styled(Link)`
   display: inline-flex;
   align-items: center;
   justify-self: start;
-  min-width: 44px;
+  gap: 9px;
   min-height: 44px;
-  border-radius: ${({ theme }) => theme.borderRadius.sm};
   color: ${({ theme }) => theme.colors.text};
-  font-size: 1.75rem;
+  font-size: 24px;
   font-weight: 800;
-  letter-spacing: -0.04em;
+  letter-spacing: -1.15px;
   text-decoration: none;
   white-space: nowrap;
 
-  span {
-    color: ${({ theme }) => theme.colors.primary};
-  }
+  > span { margin-left: -8px; color: ${({ theme }) => theme.colors.primary}; }
+  &:hover { color: ${({ theme }) => theme.colors.text}; }
 
-  &:hover {
-    color: ${({ theme }) => theme.colors.primary};
+  @media (max-width: 440px) {
+    font-size: 20px;
+    gap: 7px;
   }
+`
 
-  @media (max-width: 480px) {
-    font-size: 1.25rem;
-  }
+const BrandMark = styled.div`
+  display: grid;
+  grid-template-columns: repeat(2, 7px);
+  gap: 3px;
+  place-content: center;
+  width: 31px;
+  height: 31px;
+  border-radius: 9px;
+  background: ${({ theme }) => theme.colors.primary};
+  transform: rotate(-3deg);
+
+  i { width: 7px; height: 7px; border-radius: 2px; background: white; }
+  i:nth-child(2) { opacity: .55; }
+  i:nth-child(3) { opacity: .75; }
 `
 
 const Navigation = styled.nav`
   display: flex;
   align-items: center;
-  gap: ${({ theme }) => theme.spacing.sm};
+  gap: 14px;
 
-  @media (max-width: 800px) {
+  @media (max-width: 760px) {
     grid-column: 1 / -1;
     grid-row: 2;
     justify-content: center;
-    border-top: 1px solid ${({ theme }) => theme.colors.surfaceMuted};
-    padding-top: ${({ theme }) => theme.spacing.sm};
+    gap: 28px;
+    border-top: 1px solid ${({ theme }) => theme.colors.border};
+    margin-top: 5px;
   }
 `
 
 const NavigationLink = styled.a`
   display: inline-flex;
   align-items: center;
-  justify-content: center;
   min-height: 44px;
-  padding: ${({ theme }) => theme.spacing.sm} 0.75rem;
-  border-radius: ${({ theme }) => theme.borderRadius.md};
+  padding: 6px;
   color: ${({ theme }) => theme.colors.textSecondary};
-  font-size: ${({ theme }) => theme.fontSizes.sm};
-  font-weight: 600;
+  font-size: 13px;
+  font-weight: 550;
   text-decoration: none;
   white-space: nowrap;
 
-  &:hover {
-    background-color: ${({ theme }) => theme.colors.surfaceMuted};
-    color: ${({ theme }) => theme.colors.primaryHover};
-  }
-
-  @media (max-width: 800px) {
-    padding-inline: ${({ theme }) => theme.spacing.sm};
-  }
+  &:hover { color: ${({ theme }) => theme.colors.primary}; }
 `
 
 const Actions = styled.div`
   display: flex;
   align-items: center;
   justify-self: end;
-  gap: ${({ theme }) => theme.spacing.sm};
+  gap: 12px;
 
-  @media (max-width: 800px) {
-    grid-column: 2;
-    grid-row: 1;
-  }
+  @media (max-width: 760px) { grid-column: 2; grid-row: 1; }
+  @media (max-width: 440px) { gap: 4px; }
 `
 
 const LoginButton = styled.button`
-  padding-inline: ${({ theme }) => theme.spacing.md};
-  border: 1px solid ${({ theme }) => theme.colors.border};
-  background-color: ${({ theme }) => theme.colors.surface};
+  min-height: 40px;
+  padding: 8px 10px;
+  border: 0;
+  background: transparent;
   color: ${({ theme }) => theme.colors.textSecondary};
-  font-size: ${({ theme }) => theme.fontSizes.sm};
+  font-size: 13px;
   white-space: nowrap;
 
-  @media (max-width: 480px) {
-    padding-inline: ${({ theme }) => theme.spacing.sm};
-  }
-
-  &:hover:not(:disabled),
-  &:active:not(:disabled) {
-    border-color: ${({ theme }) => theme.colors.primary};
-    background-color: ${({ theme }) => theme.colors.surfaceMuted};
+  &&:hover:not(:disabled), &&:active:not(:disabled) {
     color: ${({ theme }) => theme.colors.primary};
+    background: ${({ theme }) => theme.colors.surfaceMuted};
   }
 `
 
 const LoginLink = styled(Link)`
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  min-height: 44px;
-  padding-inline: ${({ theme }) => theme.spacing.md};
-  border: 1px solid ${({ theme }) => theme.colors.border};
-  border-radius: ${({ theme }) => theme.borderRadius.md};
-  background-color: ${({ theme }) => theme.colors.surface};
+  min-height: 40px;
+  padding: 8px 10px;
   color: ${({ theme }) => theme.colors.textSecondary};
-  font-size: ${({ theme }) => theme.fontSizes.sm};
-  font-weight: 600;
+  font-size: 13px;
+  font-weight: 550;
   text-decoration: none;
   white-space: nowrap;
-
-  @media (max-width: 480px) {
-    padding-inline: ${({ theme }) => theme.spacing.sm};
-  }
-
-  &:hover {
-    border-color: ${({ theme }) => theme.colors.primary};
-    background-color: ${({ theme }) => theme.colors.surfaceMuted};
-    color: ${({ theme }) => theme.colors.primary};
-  }
 `
 
 const StartLink = styled(Link)`
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: ${({ theme }) => theme.spacing.sm};
-  min-height: 44px;
-  padding: ${({ theme }) => theme.spacing.sm} ${({ theme }) => theme.spacing.md};
-  border-radius: ${({ theme }) => theme.borderRadius.md};
-  background-color: ${({ theme }) => theme.colors.primary};
-  color: ${({ theme }) => theme.colors.onPrimary};
-  font-size: ${({ theme }) => theme.fontSizes.sm};
+  gap: 13px;
+  min-height: 40px;
+  padding: 10px 17px;
+  border: 1px solid ${({ theme }) => theme.colors.primary};
+  border-radius: 8px;
+  background: ${({ theme }) => theme.colors.primary};
+  color: white;
+  font-size: 13px;
   font-weight: 600;
   text-decoration: none;
   white-space: nowrap;
+  box-shadow: 0 2px 3px rgb(99 91 255 / 12%);
 
-  @media (max-width: 480px) {
-    padding-inline: ${({ theme }) => theme.spacing.sm};
-  }
-
-  &:hover {
-    background-color: ${({ theme }) => theme.colors.primaryHover};
-    color: ${({ theme }) => theme.colors.onPrimary};
-  }
-
-  &:active {
-    background-color: ${({ theme }) => theme.colors.primaryActive};
-  }
+  &:hover { background: ${({ theme }) => theme.colors.primaryHover}; color: white; }
+  @media (max-width: 440px) { gap: 7px; padding-inline: 11px; }
 `

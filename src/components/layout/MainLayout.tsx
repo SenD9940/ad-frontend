@@ -28,7 +28,7 @@ const Main = styled.main`
   flex: 1;
   width: 100%;
   min-width: 0;
-  max-width: 1200px;
+  max-width: 1248px;
   margin-inline: auto;
   padding-inline: clamp(1rem, 4vw, 2rem);
   padding-block: clamp(1.5rem, 4vw, 3rem);

@@ -8,6 +8,7 @@ export function useMyWorkspaces() {
   const [joined, setJoined] = useState<WorkspaceResponse[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [attempt, setAttempt] = useState(0)
 
   useEffect(() => {
     let cancelled = false
@@ -43,7 +44,13 @@ export function useMyWorkspaces() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [attempt])
 
-  return { owned, joined, loading, error }
+  function reload() {
+    setLoading(true)
+    setError('')
+    setAttempt((value) => value + 1)
+  }
+
+  return { owned, joined, loading, error, reload }
 }

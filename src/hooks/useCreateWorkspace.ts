@@ -31,10 +31,7 @@ export function useCreateWorkspace() {
     setSubmitting(true)
     try {
       const workspace = await registerWorkspace({ name: name.trim() })
-      navigate(`/workspaces/${workspace.id}/invite`, {
-        replace: true,
-        state: { workspaceName: workspace.name },
-      })
+      navigate(`/workspaces/${workspace.id}`, { replace: true })
     } catch (caught) {
       const message =
         caught instanceof ApiError

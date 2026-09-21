@@ -1,6 +1,6 @@
 import { useId, useState, type ChangeEvent, type FormEvent } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { useAuth } from '../auth/AuthProvider'
+import { useAuth } from '../auth/AuthContext'
 import { ApiError } from '../api/http'
 import { loginUser } from '../api/users'
 import {

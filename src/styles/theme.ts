@@ -1,18 +1,18 @@
 const theme = {
   colors: {
-    primary: '#2563eb',
-    primaryHover: '#1d4ed8',
-    primaryActive: '#1e40af',
-    primaryLight: '#dbeafe',
-    background: '#f5f8ff',
+    primary: '#635bff',
+    primaryHover: '#5146e5',
+    primaryActive: '#4338ca',
+    primaryLight: '#eeecff',
+    background: '#f7f8fb',
     surface: '#ffffff',
-    surfaceMuted: '#eff6ff',
-    text: '#172554',
-    textSecondary: '#475569',
-    textMuted: '#64748b',
+    surfaceMuted: '#f4f4f8',
+    text: '#202331',
+    textSecondary: '#626879',
+    textMuted: '#747b8c',
     onPrimary: '#ffffff',
-    border: '#cbd5e1',
-    borderHover: '#94a3b8',
+    border: '#e8e9f0',
+    borderHover: '#c9cbd8',
     disabledBackground: '#e2e8f0',
     disabledText: '#64748b',
     success: '#15803d',
@@ -20,7 +20,7 @@ const theme = {
     error: '#b91c1c',
   },
   fonts: {
-    body: "'Pretendard Variable', sans-serif",
+    body: "'Pretendard Variable', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
   },
   fontSizes: {
     sm: '0.875rem',
@@ -42,8 +42,8 @@ const theme = {
     full: '9999px',
   },
   shadows: {
-    sm: '0 2px 8px rgb(30 64 175 / 6%)',
-    md: '0 8px 24px rgb(30 64 175 / 10%)',
+    sm: '0 2px 6px rgb(32 35 49 / 3%)',
+    md: '0 12px 40px rgb(32 35 49 / 5%)',
   },
 } as const
 

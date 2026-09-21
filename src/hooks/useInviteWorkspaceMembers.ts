@@ -15,8 +15,9 @@ export function useInviteWorkspaceMembers() {
   const formId = useId()
   const { workspaceId: workspaceIdParam } = useParams()
   const workspaceId = Number(workspaceIdParam)
+  const isValidWorkspaceId = Number.isSafeInteger(workspaceId) && workspaceId > 0
   const [workspace, setWorkspace] = useState<WorkspaceResponse | null>(null)
-  const [workspaceLoading, setWorkspaceLoading] = useState(true)
+  const [workspaceLoading, setWorkspaceLoading] = useState(isValidWorkspaceId)
   const [workspaceError, setWorkspaceError] = useState('')
   const [emailInput, setEmailInput] = useState('')
   const [emails, setEmails] = useState<string[]>([])
@@ -26,20 +27,14 @@ export function useInviteWorkspaceMembers() {
   const [submitting, setSubmitting] = useState(false)
   const [results, setResults] = useState<WorkspaceMemberInviteResponse[]>([])
 
-  const isValidWorkspaceId = Number.isSafeInteger(workspaceId) && workspaceId > 0
   const busy = adding || submitting
 
   useEffect(() => {
     if (!isValidWorkspaceId) {
-      setWorkspace(null)
-      setWorkspaceLoading(false)
-      setWorkspaceError('')
       return
     }
 
     let cancelled = false
-    setWorkspaceLoading(true)
-    setWorkspaceError('')
 
     getMyWorkspace(workspaceId)
       .then((item) => {
