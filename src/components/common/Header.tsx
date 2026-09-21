@@ -1,7 +1,10 @@
 import { Link } from 'react-router-dom'
 import styled from 'styled-components'
+import { useAuth } from '../../auth/AuthProvider'
 
 export default function Header() {
+  const { isLoggedIn, clearSession } = useAuth()
+
   return (
     <Container>
       <Inner>
@@ -14,8 +17,14 @@ export default function Header() {
           <NavigationLink href="/#reviews">리뷰</NavigationLink>
         </Navigation>
         <Actions>
-          <LoginButton type="button">로그인</LoginButton>
-          <StartLink href="/#get-started">
+          {isLoggedIn ? (
+            <LoginButton type="button" onClick={clearSession}>
+              로그아웃
+            </LoginButton>
+          ) : (
+            <LoginLink to="/login">로그인</LoginLink>
+          )}
+          <StartLink to="/signup">
             시작하기 <span aria-hidden="true">→</span>
           </StartLink>
         </Actions>
@@ -150,7 +159,33 @@ const LoginButton = styled.button`
   }
 `
 
-const StartLink = styled.a`
+const LoginLink = styled(Link)`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding-inline: ${({ theme }) => theme.spacing.md};
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  border-radius: ${({ theme }) => theme.borderRadius.md};
+  background-color: ${({ theme }) => theme.colors.surface};
+  color: ${({ theme }) => theme.colors.textSecondary};
+  font-size: ${({ theme }) => theme.fontSizes.sm};
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+
+  @media (max-width: 480px) {
+    padding-inline: ${({ theme }) => theme.spacing.sm};
+  }
+
+  &:hover {
+    border-color: ${({ theme }) => theme.colors.primary};
+    background-color: ${({ theme }) => theme.colors.surfaceMuted};
+    color: ${({ theme }) => theme.colors.primary};
+  }
+`
+
+const StartLink = styled(Link)`
   display: inline-flex;
   align-items: center;
   justify-content: center;
