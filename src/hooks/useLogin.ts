@@ -1,5 +1,5 @@
 import { useId, useState, type ChangeEvent, type FormEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthProvider'
 import { ApiError } from '../api/http'
 import { loginUser } from '../api/users'
@@ -19,6 +19,7 @@ const INITIAL_VALUES: LoginFormValues = {
 export function useLogin() {
   const formId = useId()
   const navigate = useNavigate()
+  const location = useLocation()
   const { setSession } = useAuth()
   const [values, setValues] = useState<LoginFormValues>(INITIAL_VALUES)
   const [errors, setErrors] = useState<LoginFieldErrors>({})
@@ -70,7 +71,7 @@ export function useLogin() {
         password: values.password,
       })
       setSession(tokens)
-      navigate('/', { replace: true })
+      navigate(nextPathAfterLogin(location.state), { replace: true })
     } catch (error) {
       const message =
         error instanceof ApiError
@@ -102,3 +103,15 @@ export function useLogin() {
     togglePassword,
   }
 }
+
+function nextPathAfterLogin(state: unknown): string {
+  if (typeof state !== 'object' || state === null || !('from' in state)) {
+    return '/workspaces'
+  }
+  const from = (state as { from?: unknown }).from
+  if (typeof from !== 'string' || !from.startsWith('/') || from.startsWith('//')) {
+    return '/workspaces'
+  }
+  return from
+}
+

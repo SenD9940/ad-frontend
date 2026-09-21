@@ -25,6 +25,14 @@ export async function loginUser(request: UserLoginRequest): Promise<TokenRespons
   return data.body
 }
 
+export async function existsUserByEmail(email: string): Promise<boolean> {
+  const { data } = await http.post<Api<boolean>>('/api/users/exists', { email })
+  if (typeof data?.body !== 'boolean') {
+    throw new ApiError('사용자 조회 응답이 올바르지 않습니다.')
+  }
+  return data.body
+}
+
 function omitBlank(request: UserRegisterRequest): UserRegisterRequest {
   return Object.fromEntries(
     Object.entries(request).filter(([, value]) => {

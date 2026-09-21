@@ -24,9 +24,13 @@ export default function Header() {
           ) : (
             <LoginLink to="/login">로그인</LoginLink>
           )}
-          <StartLink to="/signup">
-            시작하기 <span aria-hidden="true">→</span>
-          </StartLink>
+          {isLoggedIn ? (
+            <StartLink to="/workspaces">워크스페이스</StartLink>
+          ) : (
+            <StartLink to="/signup">
+              시작하기 <span aria-hidden="true">→</span>
+            </StartLink>
+          )}
         </Actions>
       </Inner>
     </Container>
