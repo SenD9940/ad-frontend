@@ -22,7 +22,7 @@ function Icon({ name, size = 20 }: { name: IconName; size?: number }) {
 const features: { icon: IconName; title: string; description: string; label: string }[] = [
   { icon: 'grid', title: '업무의 기준은 워크스페이스', description: '브랜드와 프로젝트별로 공간을 만들고, 팀과 광고 자산을 필요한 곳에 모아 두세요.', label: '하나의 공간, 명확한 구분' },
   { icon: 'people', title: '함께 일할 팀원을 한곳에', description: '이메일로 팀원을 초대하고 멤버를 관리하세요. 소유자와 멤버의 역할을 구분해 협업할 수 있어요.', label: '초대부터 멤버 관리까지' },
-  { icon: 'link', title: '흩어진 광고 자산을 연결', description: 'Meta 계정을 연결하고 광고 계정, Facebook 페이지, Instagram 프로필을 선택해 저장하세요.', label: '필요한 자산만 선택' },
+  { icon: 'link', title: '흩어진 광고 자산을 연결', description: 'Meta 광고 자산과 네이버 스마트스토어를 연결하고, 팀에서 사용할 자산과 채널을 선택하세요.', label: '필요한 자산만 선택' },
 ]
 
 export default function LandingPage() {
@@ -36,7 +36,7 @@ export default function LandingPage() {
       <Hero>
         <Eyebrow><StatusDot /> A BETTER WAY TO WORK TOGETHER</Eyebrow>
         <HeroTitle>광고의 시작,<br />팀의 <span>연결</span>부터.</HeroTitle>
-        <HeroDescription>팀, 계정, 광고 자산을 하나의 워크스페이스로.<br className="desktop-break" /> United Ad에서 우리 팀의 다음 일을 준비하세요.</HeroDescription>
+        <HeroDescription>팀, 광고 자산, 스마트스토어를 하나의 워크스페이스로.<br className="desktop-break" /> United Ad에서 우리 팀의 다음 일을 준비하세요.</HeroDescription>
         <HeroActions>
           <PrimaryLink to={startPath}>{startLabel}<Icon name="arrow" size={18} /></PrimaryLink>
           <SecondaryLink href="#product-preview">서비스 둘러보기 <span aria-hidden="true">↓</span></SecondaryLink>
@@ -97,15 +97,15 @@ export default function LandingPage() {
       <WorkflowSection id="workflow">
         <WorkflowIntro><SectionEyebrow>FROM SETUP TO TEAMWORK</SectionEyebrow><h2>우리 팀의 시작을<br />가볍게, 세 단계로.</h2><p>빈 공간에서 함께 일할 준비까지.<br />차근차근 연결하면 됩니다.</p><TextLink to={startPath}>지금 시작하기 <Icon name="arrow" size={18} /></TextLink></WorkflowIntro>
         <WorkflowSteps>
-          {[{ title: '우리 팀의 공간을 만드세요', description: '브랜드나 프로젝트 이름으로 워크스페이스를 만들어 주세요.' }, { title: '함께할 팀원을 초대하세요', description: '팀원의 이메일로 초대를 보내고, 초대 링크로 합류하세요.' }, { title: '사용할 Meta 자산을 연결하세요', description: '소유자가 Meta 계정을 연결하면 팀에서 사용할 자산을 선택할 수 있어요.' }].map((step, index) => <WorkflowStep key={step.title}><StepNumber>0{index + 1}</StepNumber><div><h3>{step.title}</h3><p>{step.description}</p></div></WorkflowStep>)}
+          {[{ title: '우리 팀의 공간을 만드세요', description: '브랜드나 프로젝트 이름으로 워크스페이스를 만들어 주세요.' }, { title: '함께할 팀원을 초대하세요', description: '팀원의 이메일로 초대를 보내고, 초대 링크로 합류하세요.' }, { title: '사용할 플랫폼을 연결하세요', description: '소유자가 Meta 또는 스마트스토어를 연결하면 팀에서 사용할 자산과 채널을 선택할 수 있어요.' }].map((step, index) => <WorkflowStep key={step.title}><StepNumber>0{index + 1}</StepNumber><div><h3>{step.title}</h3><p>{step.description}</p></div></WorkflowStep>)}
         </WorkflowSteps>
       </WorkflowSection>
 
       <Section id="integrations">
-        <IntegrationHeading><SectionHeading><SectionEyebrow>CONNECTED POSSIBILITIES</SectionEyebrow><h2>하나씩 연결하고,<br />더 넓게 협업하세요.</h2></SectionHeading><p>지금은 Meta와 함께.<br />더 다양한 플랫폼 연결을 준비하고 있어요.</p></IntegrationHeading>
+        <IntegrationHeading><SectionHeading><SectionEyebrow>CONNECTED POSSIBILITIES</SectionEyebrow><h2>하나씩 연결하고,<br />더 넓게 협업하세요.</h2></SectionHeading><p>Meta와 네이버 스마트스토어를 한곳에.<br />더 다양한 플랫폼 연결을 준비하고 있어요.</p></IntegrationHeading>
         <IntegrationGrid>
           <IntegrationCard $available><IntegrationCardTop><IntegrationIcon $brand="meta">∞</IntegrationIcon><AvailableBadge>연동 가능</AvailableBadge></IntegrationCardTop><h3>Meta</h3><p>Facebook 광고 계정과 페이지,<br />Instagram 프로필을 연결하세요.</p><IntegrationLink to={startPath}>워크스페이스에서 연결 <Icon name="arrow" size={16} /></IntegrationLink></IntegrationCard>
-          <IntegrationCard><IntegrationCardTop><IntegrationIcon $brand="naver">N</IntegrationIcon><ComingBadge>준비 중</ComingBadge></IntegrationCardTop><h3>Naver</h3><p>네이버 플랫폼 연동을<br />준비하고 있습니다.</p><ComingLabel>Coming soon</ComingLabel></IntegrationCard>
+          <IntegrationCard $available><IntegrationCardTop><IntegrationIcon $brand="naver">N</IntegrationIcon><AvailableBadge>연동 가능</AvailableBadge></IntegrationCardTop><h3>Naver</h3><p>네이버 스마트스토어의<br />판매자와 채널을 연결하세요.</p><IntegrationLink to={startPath}>워크스페이스에서 연결 <Icon name="arrow" size={16} /></IntegrationLink></IntegrationCard>
           <IntegrationCard><IntegrationCardTop><IntegrationIcon $brand="threads">@</IntegrationIcon><ComingBadge>준비 중</ComingBadge></IntegrationCardTop><h3>Threads</h3><p>Threads 플랫폼 연동을<br />준비하고 있습니다.</p><ComingLabel>Coming soon</ComingLabel></IntegrationCard>
           <IntegrationCard><IntegrationCardTop><IntegrationIcon $brand="coupang">C</IntegrationIcon><ComingBadge>준비 중</ComingBadge></IntegrationCardTop><h3>Coupang</h3><p>쿠팡 플랫폼 연동을<br />준비하고 있습니다.</p><ComingLabel>Coming soon</ComingLabel></IntegrationCard>
         </IntegrationGrid>

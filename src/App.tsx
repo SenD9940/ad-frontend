@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AuthProvider } from './auth/AuthProvider'
 import RequireAuth from './components/auth/RequireAuth'
@@ -16,6 +17,8 @@ import MetaOAuthCallbackPage from './pages/workspace/MetaOAuthCallbackPage'
 import PlatformComingSoonPage from './pages/workspace/PlatformComingSoonPage'
 import WorkspaceConnectionsPage from './pages/workspace/WorkspaceConnectionsPage'
 import WorkspaceListPage from './pages/workspace/WorkspaceListPage'
+
+const NaverConnectionsPage = lazy(() => import('./pages/workspace/NaverConnectionsPage'))
 
 export default function App() {
   return (
@@ -42,7 +45,11 @@ export default function App() {
               <Route path="invite" element={<InviteWorkspacePage />} />
               <Route path="connections" element={<Navigate to="meta" replace />} />
               <Route path="connections/meta" element={<WorkspaceConnectionsPage />} />
-              <Route path="connections/naver" element={<PlatformComingSoonPage platform="naver" />} />
+              <Route path="connections/naver" element={
+                <Suspense fallback={<p role="status">네이버 연결 화면을 불러오는 중…</p>}>
+                  <NaverConnectionsPage />
+                </Suspense>
+              } />
               <Route path="connections/threads" element={<PlatformComingSoonPage platform="threads" />} />
               <Route path="connections/coupang" element={<PlatformComingSoonPage platform="coupang" />} />
             </Route>

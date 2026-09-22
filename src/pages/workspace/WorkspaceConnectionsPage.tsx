@@ -6,7 +6,7 @@ import type { AssetType, MetaDiscoveredAsset, PlatformAssetResponse } from '../.
 import {
   DetailActionLink, DetailAlert, DetailBadge, DetailEmpty, DetailEyebrow,
   DetailHeader, DetailHint, DetailIcon, DetailIconTile, DetailLead, DetailPage,
-  DetailPanel, DetailPanelBody, DetailPrimaryButton, DetailStatus, DetailTitle, PanelHeading,
+  DetailPanel, DetailPanelBody, DetailPrimaryButton, DetailSecondaryButton, DetailStatus, DetailTitle, PanelHeading,
 } from './WorkspaceDetailUI'
 
 const ASSET_GROUPS: { title: string; assetType: AssetType }[] = [
@@ -23,7 +23,7 @@ export default function WorkspaceConnectionsPage() {
   const {
     isValidWorkspaceId, workspace, isOwner, metaConnections, discovered, discoverErrors,
     selected, loading, error, connecting, savingId, saveError, saveMessage,
-    toggleAsset, connectMeta, saveAssets,
+    toggleAsset, selectAllAssets, clearAssetSelection, connectMeta, saveAssets,
   } = useWorkspaceConnections()
 
   if (!isValidWorkspaceId) {
@@ -117,7 +117,16 @@ export default function WorkspaceConnectionsPage() {
                       {!connection.requiresReauth && discovering ? <DetailStatus role="status">사용 가능한 자산을 찾는 중…</DetailStatus> : null}
                       {!connection.requiresReauth && available.length > 0 ? (
                         <AssetSelection>
-                          <SelectionHeading><h3>사용할 자산 선택</h3><span>{selectedCount}개 선택 / 최대 {META_ASSET_SELECT_MAX}개</span></SelectionHeading>
+                          <SelectionHeading><h3>사용할 자산 선택</h3><span role="status">전체 {available.length}개 중 {selectedCount}개 선택 · 최대 {META_ASSET_SELECT_MAX}개</span></SelectionHeading>
+                          <BulkActions role="group" aria-label={`${connection.accountName || 'Meta 계정'} 자산 일괄 선택`}>
+                            <DetailSecondaryButton type="button" onClick={() => selectAllAssets(connection.id)} disabled={savingId !== null || selectedCount === available.length}>
+                              전체 선택
+                            </DetailSecondaryButton>
+                            <DetailSecondaryButton type="button" onClick={() => clearAssetSelection(connection.id)} disabled={savingId !== null || chosen.size === 0}>
+                              전체 해제
+                            </DetailSecondaryButton>
+                          </BulkActions>
+                          <SelectionHint>선택을 해제해도 이미 저장된 자산은 삭제되지 않습니다.</SelectionHint>
                           {ASSET_GROUPS.map((group) => {
                             const items = available.filter((item) => item.assetType === group.assetType)
                             if (items.length === 0) return null
@@ -203,6 +212,8 @@ const SavedList = styled.ul`display: flex; flex-wrap: wrap; gap: 0.5rem; list-st
 const SavedItem = styled.li`display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.35rem 0.6rem; border-radius: 0.375rem; background: #f2f8f5; color: #246d51; font-size: 0.72rem; overflow-wrap: anywhere; svg { flex-shrink: 0; }`
 const AssetSelection = styled.div`padding-top: 1.25rem; border-top: 1px solid ${({ theme }) => theme.colors.border};`
 const SelectionHeading = styled.div`display: flex; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem; h3 { font-size: 0.875rem; } span { font-size: 0.75rem; color: ${({ theme }) => theme.colors.textMuted}; }`
+const BulkActions = styled.div`display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.875rem;`
+const SelectionHint = styled(DetailHint)`margin-top: 0.625rem;`
 const AssetGroup = styled.fieldset`min-width: 0; margin-top: 1.25rem; padding: 0; border: 0;`
 const GroupTitle = styled.legend`margin-bottom: 0.625rem; font-size: 0.75rem; font-weight: 650; span { color: ${({ theme }) => theme.colors.textMuted}; margin-left: 0.375rem; }`
 const AssetRow = styled.label<{ $selected: boolean }>`display: flex; align-items: center; gap: 0.75rem; min-height: 3.5rem; padding: 0.75rem; margin-top: 0.4rem; border: 1px solid ${({ theme, $selected }) => $selected ? '#d8d4ff' : theme.colors.border}; border-radius: 0.5rem; background: ${({ $selected }) => $selected ? '#faf9ff' : 'transparent'}; cursor: pointer; &:hover { border-color: #b5aef7; } input { flex-shrink: 0; width: 1rem; height: 1rem; min-height: 0; margin: 0; accent-color: ${({ theme }) => theme.colors.primary}; } &:has(input:disabled) { cursor: wait; opacity: 0.7; }`

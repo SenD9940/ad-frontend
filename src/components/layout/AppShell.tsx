@@ -6,7 +6,7 @@ import Icon from '../common/Icon'
 
 const platforms = [
   { key: 'meta', name: 'Meta', mark: '∞', color: '#1877f2', soon: false },
-  { key: 'naver', name: '네이버', mark: 'N', color: '#03a95b', soon: true },
+  { key: 'naver', name: '네이버', mark: 'N', color: '#03a95b', soon: false },
   { key: 'threads', name: 'Threads', mark: '@', color: '#202331', soon: true },
   { key: 'coupang', name: '쿠팡', mark: 'C', color: '#ee5b43', soon: true },
 ]

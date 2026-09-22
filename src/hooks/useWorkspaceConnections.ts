@@ -115,7 +115,9 @@ export function useWorkspaceConnections() {
       results.forEach((result, index) => {
         const connectionId = ready[index].id
         if (result.status === 'fulfilled') {
-          nextAssets[connectionId] = result.value.assets
+          nextAssets[connectionId] = [...new Map(
+            result.value.assets.map((asset) => [assetKey(asset), asset]),
+          ).values()]
         } else {
           const caught = result.reason
           nextErrors[connectionId] =
@@ -133,21 +135,46 @@ export function useWorkspaceConnections() {
   }, [isValidWorkspaceId, metaConnections, workspaceId])
 
   function toggleAsset(connectionId: number, key: string) {
+    if (savingId !== null) return
+
+    const availableKeys = new Set((discovered[connectionId] ?? []).map(assetKey))
+    if (!availableKeys.has(key)) return
+
     setSaveError('')
     setSaveMessage('')
-    setSelected((current) => {
-      const present = new Set(current[connectionId] ?? [])
-      if (present.has(key)) {
-        present.delete(key)
-      } else {
-        if (present.size >= META_ASSET_SELECT_MAX) {
-          setSaveError(`한 번에 ${META_ASSET_SELECT_MAX}개까지 선택할 수 있습니다.`)
-          return current
-        }
-        present.add(key)
+    const present = new Set((selected[connectionId] ?? []).filter((item) => availableKeys.has(item)))
+    if (present.has(key)) {
+      present.delete(key)
+    } else {
+      if (present.size >= META_ASSET_SELECT_MAX) {
+        setSaveError(`한 번에 ${META_ASSET_SELECT_MAX}개까지 선택할 수 있습니다.`)
+        return
       }
-      return { ...current, [connectionId]: [...present] }
-    })
+      present.add(key)
+    }
+    setSelected((current) => ({ ...current, [connectionId]: [...present] }))
+  }
+
+  function selectAllAssets(connectionId: number) {
+    if (savingId !== null) return
+
+    const keys = [...new Set((discovered[connectionId] ?? []).map(assetKey))]
+    setSaveMessage('')
+    if (keys.length > META_ASSET_SELECT_MAX) {
+      setSaveError(`사용 가능한 자산이 ${keys.length}개입니다. 한 번에 ${META_ASSET_SELECT_MAX}개까지 저장할 수 있으므로 사용할 자산을 개별 선택해 주세요.`)
+      return
+    }
+
+    setSaveError('')
+    setSelected((current) => ({ ...current, [connectionId]: keys }))
+  }
+
+  function clearAssetSelection(connectionId: number) {
+    if (savingId !== null) return
+
+    setSaveError('')
+    setSaveMessage('')
+    setSelected((current) => ({ ...current, [connectionId]: [] }))
   }
 
   async function connectMeta() {
@@ -221,6 +248,8 @@ export function useWorkspaceConnections() {
     saveError,
     saveMessage,
     toggleAsset,
+    selectAllAssets,
+    clearAssetSelection,
     connectMeta,
     saveAssets,
   }

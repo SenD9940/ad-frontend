@@ -9,7 +9,7 @@ export type PlatformType =
   | 'NAVER_SMART_STORE'
   | 'COUPANG'
 
-export type AssetType = 'AD_ACCOUNT' | 'PAGE' | 'PROFILE'
+export type AssetType = 'AD_ACCOUNT' | 'PAGE' | 'PROFILE' | 'STORE'
 
 export type PlatformAssetResponse = {
   id: number
@@ -51,3 +51,25 @@ export type MetaAssetSelection = {
 }
 
 export const META_ASSET_SELECT_MAX = 100
+
+export type NaverTokenType = 'SELF' | 'SELLER'
+
+export type NaverConnectRequest = {
+  clientId: string
+  clientSecret: string
+  tokenType: NaverTokenType
+  accountId?: string
+}
+
+export type NaverChannel = {
+  channelNo: number
+  channelType: string
+  name: string
+  url: string | null
+}
+
+export type NaverChannelResponse = NaverChannel & {
+  assetId: number
+}
+
+export const NAVER_CHANNEL_SELECT_MAX = 100
