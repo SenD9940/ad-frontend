@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { ApiError } from '../api/http'
 import { getMe } from '../api/users'
@@ -43,6 +43,7 @@ export function useWorkspaceConnections() {
   const [error, setError] = useState('')
   const [connecting, setConnecting] = useState(false)
   const [savingId, setSavingId] = useState<number | null>(null)
+  const savePending = useRef(false)
   const [saveError, setSaveError] = useState('')
   const [saveMessage, setSaveMessage] = useState('')
 
@@ -197,7 +198,9 @@ export function useWorkspaceConnections() {
     }
   }
 
-  async function saveAssets(connectionId: number) {
+  async function saveAssets(connectionId: number): Promise<{ hasSavedAdAccount: boolean } | null> {
+    if (savePending.current || !isValidWorkspaceId) return null
+
     const available = discovered[connectionId] ?? []
     const chosen = new Set(selected[connectionId] ?? [])
     const assets = available
@@ -209,25 +212,44 @@ export function useWorkspaceConnections() {
       }))
     if (assets.length === 0) {
       setSaveError('저장할 자산을 선택하세요.')
-      return
+      return null
+    }
+    if (assets.length > META_ASSET_SELECT_MAX) {
+      setSaveError(`한 번에 ${META_ASSET_SELECT_MAX}개까지 선택할 수 있습니다.`)
+      return null
     }
 
+    savePending.current = true
     setSavingId(connectionId)
     setSaveError('')
     setSaveMessage('')
+    let saved = false
     try {
       await selectMetaAssets(workspaceId, connectionId, assets)
+      saved = true
       const items = await listPlatformConnections(workspaceId)
+      const hasSavedAdAccount = items.some((connection) => (
+        connection.providerType === 'META' && connection.assets.some((asset) => (
+          asset.platformType === 'FACEBOOK' && asset.assetType === 'AD_ACCOUNT'
+        ))
+      ))
       setConnections(items)
       setSelected(savedAssetSelections(items))
-      setSaveMessage('선택한 자산을 저장했습니다.')
+      setSaveMessage(hasSavedAdAccount
+        ? '선택한 자산을 저장했습니다.'
+        : '선택한 자산을 저장했습니다. 광고 성과를 확인하려면 광고 계정을 선택하고 저장해 주세요. 페이지와 프로필만으로는 광고 성과를 조회할 수 없습니다.')
+      return { hasSavedAdAccount }
     } catch (caught) {
       setSaveError(
-        caught instanceof ApiError
+        saved
+          ? '자산은 저장되었지만 저장된 목록을 확인하지 못했습니다. 새로고침하거나 잠시 후 다시 시도해 주세요.'
+          : caught instanceof ApiError
           ? caught.message
           : '자산을 저장하지 못했습니다. 잠시 후 다시 시도해 주세요.',
       )
+      return null
     } finally {
+      savePending.current = false
       setSavingId(null)
     }
   }

@@ -1,4 +1,5 @@
-import { useLocation } from 'react-router-dom'
+import { useEffect, useRef } from 'react'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import styled from 'styled-components'
 import { assetKey, useWorkspaceConnections } from '../../hooks/useWorkspaceConnections'
 import { META_ASSET_SELECT_MAX } from '../../types/platform'
@@ -17,14 +18,31 @@ const ASSET_GROUPS: { title: string; assetType: AssetType }[] = [
 
 export default function WorkspaceConnectionsPage() {
   const location = useLocation()
+  const navigate = useNavigate()
+  const active = useRef(true)
   const connectedNotice = Boolean(
     (location.state as { metaConnected?: boolean } | null)?.metaConnected,
   )
   const {
-    isValidWorkspaceId, workspace, isOwner, metaConnections, discovered, discoverErrors,
+    workspaceId, isValidWorkspaceId, workspace, isOwner, metaConnections, discovered, discoverErrors,
     selected, loading, error, connecting, savingId, saveError, saveMessage,
     toggleAsset, selectAllAssets, clearAssetSelection, connectMeta, saveAssets,
   } = useWorkspaceConnections()
+  const hasSavedAdAccount = metaConnections.some((connection) => connection.assets.some((asset) => (
+    asset.platformType === 'FACEBOOK' && asset.assetType === 'AD_ACCOUNT'
+  )))
+
+  useEffect(() => {
+    active.current = true
+    return () => { active.current = false }
+  }, [])
+
+  async function handleSaveAssets(connectionId: number) {
+    const result = await saveAssets(connectionId)
+    if (active.current && result?.hasSavedAdAccount) {
+      navigate(`/workspaces/${workspaceId}/meta/performance`, { state: { metaAssetsSaved: true } })
+    }
+  }
 
   if (!isValidWorkspaceId) {
     return (
@@ -43,16 +61,19 @@ export default function WorkspaceConnectionsPage() {
     <DetailPage>
       <DetailHeader>
         <div>
-          <DetailEyebrow>플랫폼 연결 / Meta</DetailEyebrow>
-          <DetailTitle>Meta 연결</DetailTitle>
-          <DetailLead>Facebook과 Instagram의 광고 자산을 한곳에서 관리하세요.</DetailLead>
+          <DetailEyebrow>Meta / 자산 관리</DetailEyebrow>
+          <DetailTitle>Meta 자산 편집</DetailTitle>
+          <DetailLead>성과를 확인할 광고 계정을 선택하고 저장하세요. 페이지와 Instagram 프로필도 함께 관리할 수 있습니다.</DetailLead>
         </div>
-        {!loading && isOwner ? (
-          <DetailPrimaryButton type="button" onClick={() => void connectMeta()} disabled={connecting}>
-            <DetailIcon name="plus" size={16} />
-            {connecting ? 'Meta로 이동 중…' : metaConnections.length > 0 ? '계정 추가 · 재인증' : 'Meta 계정 연결'}
-          </DetailPrimaryButton>
-        ) : null}
+        <HeaderActions>
+          <PerformanceLink to={`/workspaces/${workspaceId}/meta/performance`}>성과로 돌아가기 <DetailIcon name="arrow" size={16} /></PerformanceLink>
+          {!loading && isOwner ? (
+            <DetailPrimaryButton type="button" onClick={() => void connectMeta()} disabled={connecting}>
+              <DetailIcon name="plus" size={16} />
+              {connecting ? 'Meta로 이동 중…' : metaConnections.length > 0 ? '계정 추가 · 재인증' : 'Meta 계정 연결'}
+            </DetailPrimaryButton>
+          ) : null}
+        </HeaderActions>
       </DetailHeader>
 
       {connectedNotice ? <DetailAlert $success role="status">Meta 계정이 연결되었습니다. 아래에서 사용할 자산을 선택하고 저장해 주세요.</DetailAlert> : null}
@@ -94,6 +115,9 @@ export default function WorkspaceConnectionsPage() {
                   const discoverError = discoverErrors[connection.id]
                   const discovering = !Object.hasOwn(discovered, connection.id) && !discoverError
                   const selectedCount = available.filter((asset) => chosen.has(assetKey(asset))).length
+                  const canShowPerformance = hasSavedAdAccount || available.some((asset) => (
+                    chosen.has(assetKey(asset)) && asset.platformType === 'FACEBOOK' && asset.assetType === 'AD_ACCOUNT'
+                  ))
                   const savedKeys = new Set(connection.assets.map(assetKey))
                   const changed = selectedCount !== savedKeys.size || available.some((asset) => chosen.has(assetKey(asset)) !== savedKeys.has(assetKey(asset)))
 
@@ -109,7 +133,15 @@ export default function WorkspaceConnectionsPage() {
                       <SavedAssets>
                         <SectionLabel>저장된 자산 <span>{connection.assets.length}</span></SectionLabel>
                         {connection.assets.length > 0 ? (
-                          <SavedList aria-label="저장된 자산">{connection.assets.map((asset) => <SavedItem key={asset.id}><DetailIcon name="check" size={13} />{formatAssetLabel(asset)}</SavedItem>)}</SavedList>
+                          <SavedList aria-label="저장된 자산">{connection.assets.map((asset) => (
+                            <SavedItem key={asset.id}>
+                              {asset.platformType === 'FACEBOOK' && asset.assetType === 'AD_ACCOUNT' ? (
+                                <SavedAccountLink to={`/workspaces/${workspaceId}/meta/performance?assetId=${asset.id}`} aria-label={`${asset.name || asset.externalId} 캠페인·성과 보기`}>
+                                  <DetailIcon name="check" size={13} />{formatAssetLabel(asset)}<DetailIcon name="arrow" size={13} />
+                                </SavedAccountLink>
+                              ) : <><DetailIcon name="check" size={13} />{formatAssetLabel(asset)}</>}
+                            </SavedItem>
+                          ))}</SavedList>
                         ) : <DetailHint>사용할 자산을 선택하고 저장하면 여기에 표시됩니다.</DetailHint>}
                       </SavedAssets>
 
@@ -148,8 +180,8 @@ export default function WorkspaceConnectionsPage() {
                           })}
                           <SaveRow>
                             <DetailHint>{changed ? '변경한 선택을 저장해 주세요.' : '저장된 자산이 선택되어 있습니다.'}</DetailHint>
-                            <DetailPrimaryButton type="button" onClick={() => void saveAssets(connection.id)} disabled={savingId !== null || selectedCount === 0 || !changed}>
-                              {savingId === connection.id ? '저장 중…' : '선택한 자산 저장'}
+                            <DetailPrimaryButton type="button" onClick={() => void handleSaveAssets(connection.id)} disabled={savingId !== null || selectedCount === 0 || !changed}>
+                              {savingId === connection.id ? '저장 중…' : canShowPerformance ? '저장하고 성과 보기' : '선택한 자산 저장'}
                             </DetailPrimaryButton>
                           </SaveRow>
                         </AssetSelection>
@@ -170,7 +202,7 @@ export default function WorkspaceConnectionsPage() {
             <Steps>
               <li><StepNumber>1</StepNumber><div><h3>Meta 계정 인증</h3><p>Facebook에 로그인하고 계정 및 페이지 접근을 허용하세요.</p></div></li>
               <li><StepNumber>2</StepNumber><div><h3>사용할 자산 선택</h3><p>워크스페이스에서 함께 관리할 광고 계정과 프로필을 선택하세요.</p></div></li>
-              <li><StepNumber>3</StepNumber><div><h3>선택한 자산 저장</h3><p>저장한 자산은 참여 중인 팀 멤버도 사용할 수 있어요.</p></div></li>
+              <li><StepNumber>3</StepNumber><div><h3>저장 후 성과 확인</h3><p>광고 계정을 저장하면 성과 화면으로 이동합니다. 이후 자산 편집에서 필요한 자산을 추가하세요.</p></div></li>
             </Steps>
             <PermissionNote><DetailIcon name="shield" size={18} /><p>계정 연결과 재인증은 워크스페이스 소유자만 할 수 있습니다. 멤버는 연결된 자산을 조회하고 선택할 수 있습니다.</p></PermissionNote>
           </DetailPanelBody>
@@ -197,6 +229,9 @@ const ContentGrid = styled.div`
   align-items: start;
   @media (max-width: 1120px) { grid-template-columns: minmax(0, 1fr); }
 `
+const HeaderActions = styled.div`display: flex; align-items: center; flex-wrap: wrap; gap: .625rem;`
+const PerformanceLink = styled(Link)`display: inline-flex; align-items: center; justify-content: center; gap: .5rem; min-height: 2.625rem; padding: .625rem .875rem; border: 1px solid ${({ theme }) => theme.colors.border}; border-radius: .5rem; background: white; color: ${({ theme }) => theme.colors.textSecondary}; font-size: .8125rem; font-weight: 600; text-decoration: none; &:hover { color: ${({ theme }) => theme.colors.primary}; border-color: #c9c7e0; }`
+const SavedAccountLink = styled(Link)`display: inline-flex; align-items: center; gap: .35rem; min-width: 0; color: inherit; text-decoration: none; &:hover { color: #15573e; text-decoration: underline; }`
 const PlatformIdentity = styled.div`display: flex; align-items: center; gap: 0.875rem; min-width: 0;`
 const MetaMark = styled.span`display: grid; place-items: center; width: 2.75rem; height: 2.75rem; flex-shrink: 0; border-radius: 0.75rem; background: #eef5ff; color: #0866ff; font-size: 2.3rem; line-height: 1; font-weight: 600;`
 const EmptyArt = styled(DetailIconTile)`width: 4.5rem; height: 4.5rem; margin-bottom: 0.25rem; border-radius: 1.25rem;`

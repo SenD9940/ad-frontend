@@ -17,7 +17,8 @@ export default function AppShell({ children, workspaceId, workspaceName }: { chi
   const [openPath, setOpenPath] = useState<string | null>(null)
   const menuOpen = openPath === pathname
   const activePlatform = platforms.find((p) => pathname.endsWith(`/connections/${p.key}`))
-  const pageName = activePlatform ? `${activePlatform.name} 연결` : /\/(members|invite)$/.test(pathname) && workspaceId ? '멤버 관리' : pathname.endsWith('/new') ? '워크스페이스 만들기' : pathname === '/invite' ? '초대 수락' : pathname.includes('/callback') ? '플랫폼 연결' : '워크스페이스'
+  const metaActive = Boolean(workspaceId && (pathname.startsWith(`/workspaces/${workspaceId}/connections/meta`) || pathname === `/workspaces/${workspaceId}/meta/performance`))
+  const pageName = pathname.endsWith('/connections/meta/assets') ? 'Meta 자산 편집' : pathname.endsWith('/meta/performance') ? 'Meta 광고 성과' : activePlatform ? `${activePlatform.name} 연결` : /\/(members|invite)$/.test(pathname) && workspaceId ? '멤버 관리' : pathname.endsWith('/new') ? '워크스페이스 만들기' : pathname === '/invite' ? '초대 수락' : pathname.includes('/callback') ? '플랫폼 연결' : '워크스페이스'
 
   return (
     <Shell>
@@ -34,7 +35,10 @@ export default function AppShell({ children, workspaceId, workspaceName }: { chi
             <NavItem to="/workspaces" end><Icon name="grid" size={18} />모든 워크스페이스</NavItem>
             {workspaceId ? <NavItem to={`/workspaces/${workspaceId}/members`} className={pathname.endsWith('/invite') ? 'active' : undefined}><Icon name="users" size={18} />멤버 관리</NavItem> : <NavItem to="/workspaces/new"><Icon name="plus" size={18} />워크스페이스 만들기</NavItem>}
           </Nav>
-          {workspaceId ? <Nav aria-label="플랫폼 연결"><NavLabel>PLATFORMS</NavLabel>{platforms.map((p) => <NavItem key={p.key} to={`/workspaces/${workspaceId}/connections/${p.key}`}><PlatformMark $color={p.color}>{p.mark}</PlatformMark>{p.name}{p.soon && <Soon>준비 중</Soon>}</NavItem>)}</Nav> : <Guide><GuideIcon><Icon name="link" /></GuideIcon><strong>연결에서 시작되는 협업</strong><p>워크스페이스에서 광고 플랫폼을 연결하고 팀과 함께 관리하세요.</p><GuideLink to="/workspaces/new">새 공간 만들기 <Icon name="arrow" size={15} /></GuideLink></Guide>}
+          {workspaceId ? <Nav aria-label="광고 플랫폼"><NavLabel>PLATFORMS</NavLabel>{platforms.map((p) => {
+            const active = p.key === 'meta' ? metaActive : activePlatform?.key === p.key
+            return <NavItem as={Link} key={p.key} to={`/workspaces/${workspaceId}/connections/${p.key}`} className={active ? 'active' : undefined} aria-current={active ? 'page' : undefined}><PlatformMark $color={p.color}>{p.mark}</PlatformMark>{p.name}{p.soon && <Soon>준비 중</Soon>}</NavItem>
+          })}</Nav> : <Guide><GuideIcon><Icon name="link" /></GuideIcon><strong>연결에서 시작되는 협업</strong><p>워크스페이스에서 광고 플랫폼을 연결하고 팀과 함께 관리하세요.</p><GuideLink to="/workspaces/new">새 공간 만들기 <Icon name="arrow" size={15} /></GuideLink></Guide>}
           <SidebarBottom><HelpLink href="mailto:dnqlsdnqls529@orinan.kr"><Icon name="help" size={18} />도움이 필요하신가요?<Icon name="arrow" size={15} /></HelpLink><Account><AccountAvatar>U</AccountAvatar><div><strong>United Ad 계정</strong><small>팀을 위한 연결된 공간</small></div><Logout type="button" onClick={clearSession} aria-label="로그아웃" title="로그아웃"><Icon name="logout" size={18} /></Logout></Account></SidebarBottom>
         </SidebarBody>
       </Sidebar>

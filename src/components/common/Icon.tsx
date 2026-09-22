@@ -1,5 +1,6 @@
 const paths = {
   grid: 'M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z',
+  chart: 'M3 3v18h18M7 16v-5M12 16V7M17 16v-8',
   plus: 'M12 5v14M5 12h14',
   arrow: 'M5 12h14m-5-5 5 5-5 5',
   back: 'M19 12H5m5-5-5 5 5 5',

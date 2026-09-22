@@ -26,7 +26,7 @@ export default function PlatformComingSoonPage({ platform }: { platform: Platfor
           <DetailBadge $tone="primary"><DetailIcon name="clock" size={13} />새로운 연결을 준비하고 있어요</DetailBadge>
           <h2>{copy.title} 연결, 곧 만나요</h2>
           <p>{copy.lead} 현재는 Meta와 네이버 스마트스토어 연결을 이용할 수 있습니다.</p>
-          <DetailActionLink to={validWorkspaceId ? `/workspaces/${workspaceId}/connections/meta` : '/workspaces'}>{validWorkspaceId ? 'Meta 연결 살펴보기' : '워크스페이스 목록'}<DetailIcon name="arrow" size={16} /></DetailActionLink>
+          <DetailActionLink to={validWorkspaceId ? `/workspaces/${workspaceId}/connections/meta` : '/workspaces'}>{validWorkspaceId ? 'Meta로 이동' : '워크스페이스 목록'}<DetailIcon name="arrow" size={16} /></DetailActionLink>
         </ComingSoon>
       </DetailPanel>
       <Availability><DetailIconTile><DetailIcon name="link" size={18} /></DetailIconTile><div><h2>지금 연결할 수 있는 플랫폼</h2><p>Meta · Facebook 광고 계정, 페이지 및 Instagram 프로필</p><p>네이버 스마트스토어 · 판매자 계정 및 스토어 채널</p></div><DetailBadge $tone="success">이용 가능</DetailBadge></Availability>

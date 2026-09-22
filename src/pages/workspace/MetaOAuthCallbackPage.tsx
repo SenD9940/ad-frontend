@@ -15,7 +15,7 @@ export default function MetaOAuthCallbackPage() {
   const errorCode = params.get('error_code')
   const validWorkspaceId = Boolean(workspaceId && /^\d+$/.test(workspaceId) && Number.isSafeInteger(Number(workspaceId)) && Number(workspaceId) > 0)
   const succeeded = status === 'success' && validWorkspaceId
-  const returnPath = validWorkspaceId ? `/workspaces/${workspaceId}/connections/meta` : '/workspaces'
+  const returnPath = validWorkspaceId ? `/workspaces/${workspaceId}/connections/meta/assets` : '/workspaces'
 
   useEffect(() => {
     if (succeeded) {
@@ -33,7 +33,7 @@ export default function MetaOAuthCallbackPage() {
           <DetailTitle>{succeeded ? 'Meta 계정이 연결되었습니다' : 'Meta 연결을 완료하지 못했어요'}</DetailTitle>
           <p>{succeeded ? '연결이 저장되었습니다. 사용할 자산을 선택하는 화면으로 이동합니다.' : `${callbackErrorMessage(errorCode)} 연결 페이지에서 다시 시도해 주세요.`}</p>
           {!succeeded && errorCode ? <DetailBadge>오류 코드 {errorCode}</DetailBadge> : null}
-          <DetailActionLink to={returnPath}>{validWorkspaceId ? 'Meta 연결 페이지로' : '워크스페이스 목록'}<DetailIcon name="arrow" size={16} /></DetailActionLink>
+          <DetailActionLink to={returnPath}>{validWorkspaceId ? 'Meta 자산 편집으로' : '워크스페이스 목록'}<DetailIcon name="arrow" size={16} /></DetailActionLink>
         </DetailEmpty>
       </DetailPanel>
     </CallbackPage>

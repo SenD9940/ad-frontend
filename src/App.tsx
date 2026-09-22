@@ -19,6 +19,8 @@ import WorkspaceConnectionsPage from './pages/workspace/WorkspaceConnectionsPage
 import WorkspaceListPage from './pages/workspace/WorkspaceListPage'
 
 const NaverConnectionsPage = lazy(() => import('./pages/workspace/NaverConnectionsPage'))
+const MetaPerformancePage = lazy(() => import('./pages/workspace/MetaPerformancePage'))
+const MetaHomePage = lazy(() => import('./pages/workspace/MetaHomePage'))
 
 export default function App() {
   return (
@@ -44,7 +46,17 @@ export default function App() {
               <Route path="members" element={<InviteWorkspacePage />} />
               <Route path="invite" element={<InviteWorkspacePage />} />
               <Route path="connections" element={<Navigate to="meta" replace />} />
-              <Route path="connections/meta" element={<WorkspaceConnectionsPage />} />
+              <Route path="connections/meta" element={
+                <Suspense fallback={<p role="status">Meta 화면을 불러오는 중…</p>}>
+                  <MetaHomePage />
+                </Suspense>
+              } />
+              <Route path="connections/meta/assets" element={<WorkspaceConnectionsPage />} />
+              <Route path="meta/performance" element={
+                <Suspense fallback={<p role="status">Meta 광고 성과 화면을 불러오는 중…</p>}>
+                  <MetaPerformancePage />
+                </Suspense>
+              } />
               <Route path="connections/naver" element={
                 <Suspense fallback={<p role="status">네이버 연결 화면을 불러오는 중…</p>}>
                   <NaverConnectionsPage />
