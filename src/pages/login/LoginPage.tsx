@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import styled from 'styled-components'
 import {
   Eyebrow, Field, FieldError, Form, FormAlert, Input, Label, LabelRow,
@@ -8,6 +8,7 @@ import { useLogin } from '../../hooks/useLogin'
 import { EMAIL_MAX_LENGTH } from './loginValidation'
 
 export default function LoginPage() {
+  const location = useLocation()
   const {
     formId, fieldId, errorId, values, errors, formError, submitting,
     showPassword, handleChange, handleSubmit, togglePassword,
@@ -72,7 +73,7 @@ export default function LoginPage() {
               {!submitting && <span aria-hidden="true">→</span>}
             </Submit>
           </Form>
-          <SwitchAuth>아직 계정이 없으신가요? <Link to="/signup">회원가입</Link></SwitchAuth>
+          <SwitchAuth>아직 계정이 없으신가요? <Link to="/signup" state={location.state}>회원가입</Link></SwitchAuth>
         </FormContent>
       </FormPanel>
     </Container>

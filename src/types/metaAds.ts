@@ -22,8 +22,8 @@ export type MetaCampaign = {
 
 export type MetaAdMetrics = {
   spend: number
-  impressions: number
-  clicks: number
+  impressions: number | null
+  clicks: number | null
   ctr: number | null
   cpc: number | null
   cpm: number | null
@@ -33,8 +33,8 @@ export type MetaAdMetrics = {
 
 export type MetaAdDailyAverage = {
   spend: number
-  impressions: number
-  clicks: number
+  impressions: number | null
+  clicks: number | null
 }
 
 export type MetaCampaignPerformance = {

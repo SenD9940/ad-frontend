@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { ApiError } from '../api/http'
 import { getMe } from '../api/users'
 import { getMyWorkspace } from '../api/workspaces'
-import { connectNaver, discoverNaverChannels, listNaverConnections, selectNaverChannels } from '../api/naverConnections'
+import { connectNaver, connectNaverSelfTest, discoverNaverChannels, getNaverSelfTestAvailability, listNaverConnections, NaverSelfTestError, selectNaverChannels } from '../api/naverConnections'
 import { NAVER_CHANNEL_SELECT_MAX } from '../types/platform'
-import type { NaverChannel, NaverConnectRequest, PlatformConnectionResponse } from '../types/platform'
+import type { NaverChannel, NaverConnectRequest, NaverSelfTestAvailability, PlatformConnectionResponse } from '../types/platform'
 
 export function useNaverConnections() {
+  const navigate = useNavigate()
   const { workspaceId: workspaceIdParam } = useParams()
   const workspaceId = Number(workspaceIdParam)
   const isValidWorkspaceId = Number.isSafeInteger(workspaceId) && workspaceId > 0
@@ -22,6 +23,11 @@ export function useNaverConnections() {
   const [connecting, setConnecting] = useState(false)
   const [connectError, setConnectError] = useState('')
   const [connectMessage, setConnectMessage] = useState('')
+  const [selfTestAvailability, setSelfTestAvailability] = useState<NaverSelfTestAvailability | null>(null)
+  const [selfTestAvailabilityError, setSelfTestAvailabilityError] = useState('')
+  const [selfTestConnecting, setSelfTestConnecting] = useState(false)
+  const [selfTestError, setSelfTestError] = useState('')
+  const [selfTestNeedsCheck, setSelfTestNeedsCheck] = useState(false)
   const [savingId, setSavingId] = useState<number | null>(null)
   const [saveError, setSaveError] = useState('')
   const [saveMessage, setSaveMessage] = useState('')
@@ -32,9 +38,32 @@ export function useNaverConnections() {
   const connectionIndex = useRef(new Map<number, PlatformConnectionResponse>())
   const channelRequests = useRef(new Map<number, AbortController>())
   const listRequest = useRef<AbortController | null>(null)
+  const selfTestAvailabilityRequest = useRef<AbortController | null>(null)
   const pendingRequests = useRef(new Set<AbortController>())
   const mutationBusy = useRef(false)
   const loadedWorkspaceId = useRef(workspaceId)
+
+  const reloadSelfTestAvailability = useCallback(async (): Promise<void> => {
+    if (!isValidWorkspaceId || !active.current) return
+    selfTestAvailabilityRequest.current?.abort()
+    const controller = new AbortController()
+    const cycle = lifecycle.current
+    selfTestAvailabilityRequest.current = controller
+    pendingRequests.current.add(controller)
+    setSelfTestAvailabilityError('')
+    try {
+      const availability = await getNaverSelfTestAvailability(workspaceId, controller.signal)
+      if (!active.current || controller.signal.aborted || cycle !== lifecycle.current) return
+      setSelfTestAvailability(availability)
+    } catch {
+      if (!active.current || controller.signal.aborted || cycle !== lifecycle.current) return
+      setSelfTestAvailability(null)
+      setSelfTestAvailabilityError('테스트 연결 가능 여부를 확인하지 못했습니다.')
+    } finally {
+      pendingRequests.current.delete(controller)
+      if (selfTestAvailabilityRequest.current === controller) selfTestAvailabilityRequest.current = null
+    }
+  }, [isValidWorkspaceId, workspaceId])
 
   const applyConnections = useCallback((items: PlatformConnectionResponse[]) => {
     const naver = items.filter((item) => item.providerType === 'NAVER')
@@ -125,6 +154,7 @@ export function useNaverConnections() {
     pendingRequests.current.add(controller)
     setLoading(true)
     setError('')
+    void reloadSelfTestAvailability()
     try {
       const [me, workspace, items] = await Promise.all([
         getMe(), getMyWorkspace(workspaceId), listNaverConnections(workspaceId, controller.signal),
@@ -142,7 +172,7 @@ export function useNaverConnections() {
       if (active.current && !controller.signal.aborted && cycle === lifecycle.current) setLoading(false)
       if (listRequest.current === controller) listRequest.current = null
     }
-  }, [applyConnections, isValidWorkspaceId, requestChannels, workspaceId])
+  }, [applyConnections, isValidWorkspaceId, reloadSelfTestAvailability, requestChannels, workspaceId])
 
   useEffect(() => {
     active.current = true
@@ -171,6 +201,11 @@ export function useNaverConnections() {
         setConnecting(false)
         setConnectError('')
         setConnectMessage('')
+        setSelfTestAvailability(null)
+        setSelfTestAvailabilityError('')
+        setSelfTestConnecting(false)
+        setSelfTestError('')
+        setSelfTestNeedsCheck(false)
         setSavingId(null)
         setSaveError('')
         setSaveMessage('')
@@ -228,6 +263,63 @@ export function useNaverConnections() {
       if (active.current && cycle === lifecycle.current) {
         mutationBusy.current = false
         setConnecting(false)
+      }
+    }
+  }
+
+  async function checkSelfTestConnection(): Promise<void> {
+    if (mutationBusy.current || loading || !active.current) return
+    if (await refreshConnections()) {
+      setSelfTestNeedsCheck(false)
+      setSelfTestError('현재 연결 목록을 확인했습니다. 연결된 계정과 채널을 확인해 주세요.')
+      for (const item of connectionIndex.current.values()) if (!item.requiresReauth) void requestChannels(item.id)
+    } else if (active.current) setSelfTestError('연결 목록을 확인하지 못했습니다. 잠시 후 다시 확인해 주세요.')
+  }
+
+  async function connectSelfTest(): Promise<void> {
+    if (mutationBusy.current || loading || selfTestNeedsCheck || !active.current) return
+    if (!isValidWorkspaceId || !isOwner || !selfTestAvailability?.available) {
+      setSelfTestError('현재 워크스페이스에서는 내 스토어 테스트 연결을 사용할 수 없습니다.')
+      return
+    }
+    mutationBusy.current = true
+    mutationVersion.current += 1
+    listRequest.current?.abort()
+    const controller = new AbortController()
+    const cycle = lifecycle.current
+    pendingRequests.current.add(controller)
+    setSelfTestConnecting(true)
+    setSelfTestError('')
+    setConnectMessage('')
+    try {
+      const item = await connectNaverSelfTest(workspaceId, controller.signal)
+      if (!active.current || controller.signal.aborted || cycle !== lifecycle.current) return
+      mutationVersion.current += 1
+      listRequest.current?.abort()
+      channelRequests.current.get(item.id)?.abort()
+      channelRequests.current.delete(item.id)
+      const wasReauthRequired = connectionIndex.current.get(item.id)?.requiresReauth
+      applyConnections([...connectionIndex.current.values()].filter((current) => current.id !== item.id).concat(item))
+      if (wasReauthRequired) setSelected((current) => ({ ...current, [item.id]: savedChannelNos(item) }))
+      setConnectMessage('내 스토어가 연결되었습니다. 사용할 스마트스토어 채널을 확인하고 저장해 주세요.')
+      void requestChannels(item.id)
+    } catch (caught) {
+      if (!active.current || controller.signal.aborted || cycle !== lifecycle.current) return
+      setSelfTestError(errorMessage(caught, '내 스토어를 연결하지 못했습니다. 잠시 후 다시 시도해 주세요.'))
+      if (isPermissionError(caught)) setIsOwner(false)
+      if (caught instanceof NaverSelfTestError && caught.outcomeUnknown) {
+        setSelfTestNeedsCheck(true)
+        // Reconcile only with a read. A timed-out write may already have saved.
+        const refreshed = await refreshConnections()
+        if (refreshed && active.current && cycle === lifecycle.current) {
+          for (const item of connectionIndex.current.values()) if (!item.requiresReauth) void requestChannels(item.id)
+        }
+      }
+    } finally {
+      pendingRequests.current.delete(controller)
+      if (active.current && cycle === lifecycle.current) {
+        mutationBusy.current = false
+        setSelfTestConnecting(false)
       }
     }
   }
@@ -311,6 +403,13 @@ export function useNaverConnections() {
       setSelected((current) => ({ ...current, [connectionId]: saved.map((channel) => channel.channelNo)
         .filter((no) => available.has(no)).slice(0, NAVER_CHANNEL_SELECT_MAX) }))
       setSaveMessage('선택한 스마트스토어 채널을 저장했습니다. 기존에 저장한 다른 채널도 유지됩니다.')
+      const firstSaved = saved.find((channel) => chosen.includes(channel.channelNo))
+      if (firstSaved) {
+        navigate(`/workspaces/${workspaceId}/naver/performance?assetId=${firstSaved.assetId}`, {
+          state: { naverChannelsSaved: true },
+        })
+        return
+      }
       const refreshed = await refreshConnections()
       if (!refreshed && active.current && !controller.signal.aborted && cycle === lifecycle.current) {
         setSaveError('채널은 저장했지만 연결 목록을 갱신하지 못했습니다. 다시 조회해 주세요.')
@@ -337,7 +436,9 @@ export function useNaverConnections() {
   return { workspaceId, isValidWorkspaceId, isOwner, connections, loading, error, reload,
     channels, channelErrors, channelLoading, selected, connecting, connectError, connectMessage,
     connect, savingId, saveError, saveMessage, toggleChannel, selectAllChannels,
-    clearChannelSelection, saveChannels, reloadChannels }
+    clearChannelSelection, saveChannels, reloadChannels, selfTestAvailability, selfTestAvailabilityError,
+    reloadSelfTestAvailability, selfTestConnecting, selfTestError, selfTestNeedsCheck, connectSelfTest,
+    checkSelfTestConnection }
 }
 
 function savedChannelNos(connection: PlatformConnectionResponse): number[] {

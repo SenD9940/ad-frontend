@@ -109,7 +109,7 @@ function nextPathAfterLogin(state: unknown): string {
     return '/workspaces'
   }
   const from = (state as { from?: unknown }).from
-  if (typeof from !== 'string' || !from.startsWith('/') || from.startsWith('//')) {
+  if (typeof from !== 'string' || !from.startsWith('/') || from.startsWith('//') || /[\\\r\n]/.test(from)) {
     return '/workspaces'
   }
   return from

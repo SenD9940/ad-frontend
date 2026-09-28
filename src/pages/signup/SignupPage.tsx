@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import styled from 'styled-components'
 import {
   Eyebrow, Field, FieldError, Form, FormAlert, Hint, Input, Label,
@@ -16,6 +16,7 @@ import {
 } from './signupValidation'
 
 export default function SignupPage() {
+  const location = useLocation()
   const {
     formId,
     fieldId,
@@ -43,7 +44,7 @@ export default function SignupPage() {
             <strong>{completedEmail}</strong> 계정으로 가입되었습니다.
             이제 United Ad에서 광고 운영을 시작할 수 있습니다.
           </Lead>
-          <HomeLink to="/login">로그인하기 <span aria-hidden="true">→</span></HomeLink>
+          <HomeLink to="/login" state={location.state}>로그인하기 <span aria-hidden="true">→</span></HomeLink>
         </SuccessCard>
       </Container>
     )
@@ -60,7 +61,7 @@ export default function SignupPage() {
           <li><span>02</span><div><strong>워크스페이스 준비</strong><p>팀의 광고 운영 공간을 만드세요.</p></div></li>
           <li><span>03</span><div><strong>팀과 광고 계정 연결</strong><p>멤버를 초대하고 운영을 시작하세요.</p></div></li>
         </SetupList>
-        <IntroNote>이미 계정이 있으신가요?<Link to="/login">로그인 <span aria-hidden="true">→</span></Link></IntroNote>
+        <IntroNote>이미 계정이 있으신가요?<Link to="/login" state={location.state}>로그인 <span aria-hidden="true">→</span></Link></IntroNote>
       </Intro>
       <Card>
         <CardHeading>
@@ -292,7 +293,7 @@ export default function SignupPage() {
         </Form>
 
         <SwitchAuth>
-          이미 계정이 있으신가요? <Link to="/login">로그인</Link>
+          이미 계정이 있으신가요? <Link to="/login" state={location.state}>로그인</Link>
         </SwitchAuth>
       </Card>
     </Container>

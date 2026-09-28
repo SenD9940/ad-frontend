@@ -1,10 +1,12 @@
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react'
 import styled from 'styled-components'
+import { useParams } from 'react-router-dom'
+import { useNaverAuthorizationEntry } from '../../hooks/useNaverAuthorizationEntry'
 import { useNaverConnections } from '../../hooks/useNaverConnections'
-import { NAVER_CHANNEL_SELECT_MAX, type NaverConnectRequest } from '../../types/platform'
+import { NAVER_CHANNEL_SELECT_MAX, type NaverConnectRequest, type PlatformConnectionResponse } from '../../types/platform'
 import { Field, FieldError, Hint, Input, Label, LabelRow, TogglePassword } from '../../components/auth/AuthFormUI'
 import {
-  DetailAlert, DetailBadge, DetailEmpty, DetailEyebrow, DetailHeader, DetailHint,
+  DetailActionLink, DetailAlert, DetailBadge, DetailEmpty, DetailEyebrow, DetailHeader, DetailHint,
   DetailIcon, DetailLead, DetailPage, DetailPanel, DetailPanelBody, DetailPrimaryButton,
   DetailSecondaryButton, DetailStatus, DetailTitle, PanelHeading,
 } from './WorkspaceDetailUI'
@@ -13,14 +15,28 @@ type FormTarget = { id?: number; name?: string }
 type NaverTokenType = NaverConnectRequest['tokenType']
 
 export default function NaverConnectionsPage() {
+  const { workspaceId } = useParams()
+  return <NaverConnectionsContent key={workspaceId} />
+}
+
+function NaverConnectionsContent() {
   const {
-    isOwner, connections, loading, error, reload, channels, channelErrors, channelLoading,
+    workspaceId, isOwner, connections, loading, error, reload, channels, channelErrors, channelLoading,
     selected, connecting, connectError, connectMessage, connect, savingId, saveError,
     saveMessage, toggleChannel, selectAllChannels, clearChannelSelection, saveChannels,
-    reloadChannels,
+    reloadChannels, selfTestAvailability, selfTestAvailabilityError, reloadSelfTestAvailability,
+    selfTestConnecting, selfTestError, selfTestNeedsCheck, connectSelfTest, checkSelfTestConnection,
   } = useNaverConnections()
   const [formTarget, setFormTarget] = useState<FormTarget | null>(null)
-  const busy = connecting || savingId !== null
+  const oauth = useNaverAuthorizationEntry(workspaceId, isOwner)
+  const busy = connecting || selfTestConnecting || savingId !== null || oauth.starting
+  const manualAllowed = oauth.capabilities?.manualConnectionAllowed !== false
+
+  function reconnect(connection: PlatformConnectionResponse) {
+    if (connection.connectionMode === 'SOLUTION') {
+      void oauth.start(connection.id)
+    } else if (manualAllowed) setFormTarget({ id: connection.id, name: connection.accountName })
+  }
 
   async function handleConnect(request: NaverConnectRequest) {
     if (await connect(request)) setFormTarget(null)
@@ -30,17 +46,45 @@ export default function NaverConnectionsPage() {
     <DetailPage>
       <DetailHeader>
         <div>
-          <DetailEyebrow>플랫폼 연결 / Naver</DetailEyebrow>
-          <DetailTitle>네이버 연결</DetailTitle>
+          <DetailEyebrow>네이버 / 자산 편집</DetailEyebrow>
+          <DetailTitle>네이버 자산 편집</DetailTitle>
           <DetailLead>스마트스토어를 연결하고 팀과 함께 사용할 채널을 선택하세요.</DetailLead>
         </div>
-        {!loading && isOwner && !formTarget && (
-          <ConnectButton type="button" onClick={() => setFormTarget({})} disabled={busy}>
+        {connections.some((connection) => connection.assets.some((asset) => asset.platformType === 'NAVER_SMART_STORE' && asset.assetType === 'STORE')) && <DetailActionLink to={`/workspaces/${workspaceId}/naver/performance`}>상품 및 판매 성과</DetailActionLink>}
+        {!loading && isOwner && oauth.capabilities?.ready && !formTarget && (
+          <ConnectButton type="button" onClick={() => void oauth.start()} disabled={busy}>
             <DetailIcon name="plus" size={16} />
-            {connections.length ? '네이버 계정 추가' : '네이버 계정 연결'}
+            {oauth.starting ? '인증 창 준비 중…' : '네이버로 스마트스토어 연결'}
           </ConnectButton>
         )}
       </DetailHeader>
+
+      <DetailPanel aria-label="네이버 연결 방식">
+        <DetailPanelBody>
+          {!loading && isOwner && selfTestAvailability?.available && <SelfTestSection>
+            <div><DetailBadge $tone="success">내 스토어 테스트</DetailBadge><DetailHint>저장해 둔 애플리케이션 정보로 내 스마트스토어를 연결합니다. 추가 입력 없이 채널을 확인할 수 있어요.</DetailHint></div>
+            <ConnectButton type="button" onClick={() => void connectSelfTest()} disabled={busy || selfTestNeedsCheck}>
+              <DetailIcon name="link" size={16} />{selfTestConnecting ? '내 스토어 연결 중…' : '내 스토어로 테스트 연결'}
+            </ConnectButton>
+          </SelfTestSection>}
+          {!loading && isOwner && selfTestAvailabilityError && <>
+            <DetailAlert role="alert">{selfTestAvailabilityError}</DetailAlert>
+            <DetailSecondaryButton type="button" onClick={() => void reloadSelfTestAvailability()} disabled={busy}>테스트 연결 다시 확인</DetailSecondaryButton>
+          </>}
+          {selfTestError && <DetailAlert role="alert">{selfTestError}</DetailAlert>}
+          {selfTestNeedsCheck && <DetailSecondaryButton type="button" onClick={() => void checkSelfTestConnection()} disabled={busy || loading}>연결 결과 다시 확인</DetailSecondaryButton>}
+          {oauth.loading ? <DetailHint role="status">네이버 연결 방식을 확인하는 중…</DetailHint> : oauth.error ? <>
+            <DetailAlert role="alert">{oauth.error}</DetailAlert>
+            <DetailSecondaryButton type="button" onClick={oauth.reload}>연결 방식 다시 확인</DetailSecondaryButton>
+          </> : oauth.capabilities?.ready ? <DetailHint>네이버에서 판매자 인증을 마친 뒤 스토어와 구독 정보를 확인하고 연결하세요.</DetailHint> : <>
+            <DetailBadge>간편 연결 준비 중</DetailBadge>
+            <DetailHint>{oauth.capabilities?.reason || '네이버 간편 연결을 준비하고 있습니다.'} 지금은 커머스API 애플리케이션 정보로 스마트스토어를 연결할 수 있습니다.</DetailHint>
+          </>}
+          {oauth.startError && <DetailAlert role="alert">{oauth.startError}</DetailAlert>}
+          {!loading && isOwner && manualAllowed && !formTarget && <ManualAction type="button" onClick={() => setFormTarget({})} disabled={busy}>애플리케이션 정보로 직접 연결</ManualAction>}
+          {!loading && !isOwner && <DetailHint>새 계정 연결과 재연결은 워크스페이스 소유자만 할 수 있습니다.</DetailHint>}
+        </DetailPanelBody>
+      </DetailPanel>
 
       {connectMessage && <DetailAlert $success role="status">{connectMessage}</DetailAlert>}
       {connectError && !isOwner && <DetailAlert role="alert">{connectError}</DetailAlert>}
@@ -71,8 +115,8 @@ export default function NaverConnectionsPage() {
             <DetailEmpty>
               <EmptyMark aria-hidden="true">N</EmptyMark>
               <h2>첫 스마트스토어를 연결해 보세요</h2>
-              <p>{isOwner ? '커머스 API에서 발급받은 애플리케이션 정보로 판매자 계정을 연결할 수 있어요.' : '워크스페이스 소유자가 네이버 계정을 연결하면 팀원도 채널을 조회하고 저장할 수 있어요.'}</p>
-              {isOwner ? !formTarget && <ConnectButton type="button" onClick={() => setFormTarget({})} disabled={busy}>네이버 계정 연결</ConnectButton> : <DetailBadge>소유자의 연결을 기다리고 있어요</DetailBadge>}
+              <p>{isOwner ? '연결 방식을 선택해 스마트스토어를 추가하고 사용할 채널을 저장하세요.' : '워크스페이스 소유자가 네이버 계정을 연결하면 팀원도 채널을 조회하고 저장할 수 있어요.'}</p>
+              {!isOwner && <DetailBadge>소유자의 연결을 기다리고 있어요</DetailBadge>}
             </DetailEmpty>
           ) : (
             <ConnectionList aria-label="연결된 네이버 계정">
@@ -91,14 +135,18 @@ export default function NaverConnectionsPage() {
                       <div><h3>{connection.accountName || '네이버 판매자 계정'}</h3><p>판매자 UID {connection.externalAccountId}</p></div>
                       <DetailBadge $tone={connection.requiresReauth ? 'warning' : 'success'}>{connection.requiresReauth ? '재연결 필요' : '연결됨'}</DetailBadge>
                     </ConnectionHeading>
+                    {isOwner && connection.connectionMode !== 'SOLUTION' && oauth.capabilities?.ready && <MigrationRow>
+                      <DetailHint>같은 판매자 계정을 인증하면 저장된 채널을 유지하면서 네이버 간편 연결로 전환합니다.</DetailHint>
+                      <DetailSecondaryButton type="button" onClick={() => void oauth.start(connection.id)} disabled={busy}>네이버 간편 연결로 전환</DetailSecondaryButton>
+                    </MigrationRow>}
                     <SavedSection>
                       <SectionLabel>저장된 스마트스토어 <span>{saved.length}</span></SectionLabel>
                       {saved.length ? <SavedList aria-label="저장된 스마트스토어">{saved.map((asset) => <li key={asset.id}><DetailIcon name="check" size={13} />{asset.name || asset.externalId}</li>)}</SavedList> : <DetailHint>사용할 채널을 선택하고 저장하면 여기에 표시됩니다.</DetailHint>}
                     </SavedSection>
                     {connection.requiresReauth ? (
                       <>
-                        <DetailAlert role="status">네이버 계정을 다시 연결해야 합니다. {isOwner ? '발급받은 애플리케이션 정보와 판매자 권한을 확인해 주세요.' : '워크스페이스 소유자에게 재연결을 요청해 주세요.'}</DetailAlert>
-                        {isOwner && <InlineConnect type="button" onClick={() => setFormTarget({ id: connection.id, name: connection.accountName })} disabled={busy}>네이버 계정 다시 연결</InlineConnect>}
+                        <DetailAlert role="status">네이버 계정을 다시 연결해야 합니다. {isOwner ? '기존 연결 방식으로 판매자 권한을 다시 확인해 주세요.' : '워크스페이스 소유자에게 재연결을 요청해 주세요.'}</DetailAlert>
+                        {isOwner && <InlineConnect type="button" onClick={() => reconnect(connection)} disabled={busy || (connection.connectionMode === 'SOLUTION' ? !oauth.capabilities?.ready : !manualAllowed)}>네이버 계정 다시 연결</InlineConnect>}
                       </>
                     ) : (
                       <ChannelSection>
@@ -107,7 +155,7 @@ export default function NaverConnectionsPage() {
                           <ChannelError>
                             <DetailAlert role="alert">{channelError}</DetailAlert>
                             <DetailHint>애플리케이션 권한과 허용 IP를 확인한 뒤 다시 조회해 주세요.{isOwner ? ' 인증 정보를 변경했다면 계정을 다시 연결할 수 있어요.' : ' 인증 문제는 워크스페이스 소유자에게 문의해 주세요.'}</DetailHint>
-                            {isOwner && <DetailSecondaryButton type="button" onClick={() => setFormTarget({ id: connection.id, name: connection.accountName })} disabled={busy}>네이버 계정 다시 연결</DetailSecondaryButton>}
+                            {isOwner && <DetailSecondaryButton type="button" onClick={() => reconnect(connection)} disabled={busy || (connection.connectionMode === 'SOLUTION' ? !oauth.capabilities?.ready : !manualAllowed)}>네이버 계정 다시 연결</DetailSecondaryButton>}
                           </ChannelError>
                         ) : available.length === 0 ? (
                           <ChannelEmpty><DetailIcon name="layers" size={24} /><DetailHint>조회 가능한 스마트스토어 채널이 없습니다. 연결한 판매자 계정의 채널과 접근 권한을 확인해 주세요.</DetailHint></ChannelEmpty>
@@ -156,8 +204,8 @@ export default function NaverConnectionsPage() {
           <DetailPanelBody>
             <h2>스마트스토어 연결 안내</h2>
             <Steps>
-              <li><span>1</span><div><h3>앱 정보 준비</h3><p>네이버 커머스API센터에서 발급받은 애플리케이션 ID와 시크릿을 준비하세요.</p></div></li>
-              <li><span>2</span><div><h3>판매자 계정 연결</h3><p>내스토어는 SELF, 다른 판매자는 SELLER 유형과 해당 판매자 ID를 사용하세요.</p></div></li>
+              <li><span>1</span><div><h3>연결 방식 선택</h3><p>네이버 간편 연결 또는 커머스API 애플리케이션 정보로 연결을 시작하세요.</p></div></li>
+              <li><span>2</span><div><h3>판매자 계정 확인</h3><p>연결할 스토어와 워크스페이스를 확인하세요. 간편 연결은 신청한 구독 요금제도 확인합니다.</p></div></li>
               <li><span>3</span><div><h3>스마트스토어 선택</h3><p>조회된 채널을 선택하고 저장해 팀과 함께 관리하세요.</p></div></li>
             </Steps>
             <GuideNote><DetailIcon name="shield" size={18} /><p>계정 연결은 소유자만 할 수 있으며, 멤버도 채널 조회와 저장이 가능합니다.</p></GuideNote>
@@ -214,7 +262,7 @@ function NaverConnectForm({ target, connecting, disabled, error, onSubmit, onCan
 
   return (
     <DetailPanel aria-labelledby={`${formId}-title`}>
-      <PanelHeading><div><h2 id={`${formId}-title`}>{target.id ? '네이버 계정 다시 연결' : '네이버 계정 연결하기'}</h2><p>{target.name ? `${target.name}과 동일한 판매자를 인증하면 기존 연결이 갱신됩니다.` : '네이버 커머스 API의 애플리케이션 정보를 입력해 주세요.'}</p></div><DetailBadge $tone="success">소유자 전용</DetailBadge></PanelHeading>
+      <PanelHeading><div><h2 id={`${formId}-title`}>{target.id ? '애플리케이션 정보로 다시 연결' : '애플리케이션 정보로 직접 연결'}</h2><p>{target.name ? `${target.name}과 동일한 판매자를 인증하면 기존 연결이 갱신됩니다.` : '네이버 커머스 API의 애플리케이션 정보를 입력해 주세요.'}</p></div><DetailBadge $tone="success">소유자 전용</DetailBadge></PanelHeading>
       <CredentialsForm onSubmit={submit} noValidate autoComplete="off" aria-busy={disabled}>
         {submitted && error && <FormAlert role="alert">{error}</FormAlert>}
         <FormNotice>일반 네이버 로그인용 앱 정보와 다릅니다. 커머스API센터에 서버 IP를 허용하고 판매자·채널 조회 권한을 설정해 주세요.</FormNotice>
@@ -287,3 +335,9 @@ const FormAlert = styled(DetailAlert)`grid-column: 1 / -1;`
 const FormNotice = styled(DetailHint)`grid-column: 1 / -1; padding: 0.875rem; border: 1px solid #dceee2; border-radius: 0.5rem; background: #f5fbf7; color: #436f55;`
 const TokenSelect = styled.select`width: 100%; min-width: 0; min-height: 3rem; font-size: 0.9rem; @media(max-width: 640px) { font-size: 1rem; }`
 const FormActions = styled.div`display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 0.5rem; grid-column: 1 / -1; padding-top: 0.5rem;`
+
+const ManualAction = styled(DetailSecondaryButton)`margin-top: .875rem;`
+
+const SelfTestSection = styled.div`display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding-bottom: 1.25rem; margin-bottom: 1.25rem; border-bottom: 1px solid ${({ theme }) => theme.colors.border}; > div { display: grid; justify-items: start; gap: .5rem; } > button { flex-shrink: 0; } @media(max-width: 700px) { align-items: flex-start; flex-direction: column; > button { width: 100%; } }`
+
+const MigrationRow = styled.div`display: flex; flex-direction: column; align-items: flex-start; gap: .5rem; margin-top: .875rem;`

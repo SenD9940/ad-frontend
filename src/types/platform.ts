@@ -27,6 +27,8 @@ export type PlatformConnectionResponse = {
   externalAccountId: string
   accountName: string
   requiresReauth: boolean
+  connectionMode?: 'MANUAL' | 'SOLUTION' | null
+  connectionStatus?: 'CONNECTED' | 'REAUTH_REQUIRED' | null
   expiresAt: string | null
   assets: PlatformAssetResponse[]
 }
@@ -59,6 +61,11 @@ export type NaverConnectRequest = {
   clientSecret: string
   tokenType: NaverTokenType
   accountId?: string
+}
+
+export type NaverSelfTestAvailability = {
+  available: boolean
+  reason: string | null
 }
 
 export type NaverChannel = {

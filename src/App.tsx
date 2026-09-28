@@ -18,9 +18,14 @@ import PlatformComingSoonPage from './pages/workspace/PlatformComingSoonPage'
 import WorkspaceConnectionsPage from './pages/workspace/WorkspaceConnectionsPage'
 import WorkspaceListPage from './pages/workspace/WorkspaceListPage'
 
+const NaverOAuthCallbackPage = lazy(() => import('./pages/workspace/NaverOAuthCallbackPage'))
 const NaverConnectionsPage = lazy(() => import('./pages/workspace/NaverConnectionsPage'))
+const NaverHomePage = lazy(() => import('./pages/workspace/NaverHomePage'))
+const NaverPerformancePage = lazy(() => import('./pages/workspace/NaverPerformancePage'))
 const MetaPerformancePage = lazy(() => import('./pages/workspace/MetaPerformancePage'))
 const MetaHomePage = lazy(() => import('./pages/workspace/MetaHomePage'))
+const MetaAdCreatePage = lazy(() => import('./pages/workspace/MetaAdCreatePage'))
+const MetaAdEditPage = lazy(() => import('./pages/workspace/MetaAdEditPage'))
 
 export default function App() {
   return (
@@ -39,6 +44,11 @@ export default function App() {
               <Route path="workspaces" element={<WorkspaceListPage />} />
               <Route path="workspaces/new" element={<CreateWorkspacePage />} />
               <Route path="settings/integrations/meta/callback" element={<MetaOAuthCallbackPage />} />
+              <Route path="settings/integrations/naver/callback" element={
+                <Suspense fallback={<p role="status">네이버 연결 상태를 확인하는 중…</p>}>
+                  <NaverOAuthCallbackPage />
+                </Suspense>
+              } />
               <Route path="invite" element={<AcceptInvitePage />} />
             </Route>
             <Route path="workspaces/:workspaceId" element={<WorkspaceAppLayout />}>
@@ -57,9 +67,29 @@ export default function App() {
                   <MetaPerformancePage />
                 </Suspense>
               } />
+              <Route path="meta/ads/new" element={
+                <Suspense fallback={<p role="status">광고 등록 화면을 불러오는 중…</p>}>
+                  <MetaAdCreatePage />
+                </Suspense>
+              } />
+              <Route path="meta/ads/edit" element={
+                <Suspense fallback={<p role="status">광고 수정 화면을 불러오는 중…</p>}>
+                  <MetaAdEditPage />
+                </Suspense>
+              } />
               <Route path="connections/naver" element={
+                <Suspense fallback={<p role="status">네이버 화면을 불러오는 중…</p>}>
+                  <NaverHomePage />
+                </Suspense>
+              } />
+              <Route path="connections/naver/assets" element={
                 <Suspense fallback={<p role="status">네이버 연결 화면을 불러오는 중…</p>}>
                   <NaverConnectionsPage />
+                </Suspense>
+              } />
+              <Route path="naver/performance" element={
+                <Suspense fallback={<p role="status">스마트스토어 성과 화면을 불러오는 중…</p>}>
+                  <NaverPerformancePage />
                 </Suspense>
               } />
               <Route path="connections/threads" element={<PlatformComingSoonPage platform="threads" />} />

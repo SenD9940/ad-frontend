@@ -126,14 +126,16 @@ function positiveId(value: unknown): value is number {
 }
 
 function isMetrics(value: MetaAdMetrics): boolean {
-  return Boolean(value && nonnegativeNumber(value.spend) && nonnegativeInteger(value.impressions)
-    && nonnegativeInteger(value.clicks) && (value.ctr === null || nonnegativeNumber(value.ctr))
+  return Boolean(value && nonnegativeNumber(value.spend) && (value.impressions === null || nonnegativeInteger(value.impressions))
+    && (value.clicks === null || nonnegativeInteger(value.clicks)) && (value.ctr === null || nonnegativeNumber(value.ctr))
     && (value.cpc === null || nonnegativeNumber(value.cpc)) && (value.cpm === null || nonnegativeNumber(value.cpm))
     && nonnegativeNumber(value.purchaseValue) && (value.roas === null || nonnegativeNumber(value.roas)))
 }
 
 function isDailyAverage(value: MetaAdDailyAverage): boolean {
-  return Boolean(value && nonnegativeNumber(value.spend) && nonnegativeNumber(value.impressions) && nonnegativeNumber(value.clicks))
+  return Boolean(value && nonnegativeNumber(value.spend)
+    && (value.impressions === null || nonnegativeNumber(value.impressions))
+    && (value.clicks === null || nonnegativeNumber(value.clicks)))
 }
 
 function isCampaign(value: MetaCampaign): boolean {

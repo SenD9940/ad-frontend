@@ -11,8 +11,8 @@ export default defineConfig({
         target: 'http://localhost:8480',
         changeOrigin: true,
         configure(proxy) {
-          proxy.on('proxyReq', (proxyReq) => {
-            proxyReq.removeHeader('origin')
+          proxy.on('proxyReq', (proxyReq, req) => {
+            if (!req.url?.startsWith('/open-api/integrations/naver/')) proxyReq.removeHeader('origin')
           })
         },
       },
@@ -20,8 +20,8 @@ export default defineConfig({
         target: 'http://localhost:8480',
         changeOrigin: true,
         configure(proxy) {
-          proxy.on('proxyReq', (proxyReq) => {
-            proxyReq.removeHeader('origin')
+          proxy.on('proxyReq', (proxyReq, req) => {
+            if (!/^\/api\/workspaces\/\d+\/connections\/naver\/authorizations(?:\/|$)/.test(req.url ?? '')) proxyReq.removeHeader('origin')
           })
         },
       },

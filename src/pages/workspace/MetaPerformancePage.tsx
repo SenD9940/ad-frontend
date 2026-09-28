@@ -1,10 +1,11 @@
 import { useRef, useState, type FormEvent } from 'react'
-import { Link, useLocation, useParams, useSearchParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import styled from 'styled-components'
 import { useMetaAdPerformance } from '../../hooks/useMetaAdPerformance'
 import type { DateRange } from '../../types/metaAds'
 import { AccountPerformanceTable, CampaignPerformanceTable, PerformanceSummary } from './MetaPerformanceUI'
 import { getPresetPeriod, validatePerformancePeriod, type PerformancePreset } from './metaPerformanceDates'
+import { metaAdEditPath } from './metaAdEditPaths'
 import {
   DetailActionLink, DetailAlert, DetailBadge, DetailEmpty, DetailEyebrow, DetailHeader,
   DetailHint, DetailLead, DetailPage, DetailPanel, DetailPrimaryButton,
@@ -19,6 +20,7 @@ const presets: { value: PerformancePreset; label: string }[] = [
 export default function MetaPerformancePage() {
   const { workspaceId } = useParams()
   const location = useLocation()
+  const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const rawAssetId = searchParams.get('assetId')
   const assetId = rawAssetId === null ? null : /^\d+$/.test(rawAssetId) && Number.isSafeInteger(Number(rawAssetId)) && Number(rawAssetId) > 0 ? Number(rawAssetId) : -1
@@ -122,10 +124,14 @@ export default function MetaPerformancePage() {
 
           <ResultsHeader>
             <div><h2>{assetId === null ? '전체 광고 성과' : selectedAccount?.name || '광고 계정 성과'}</h2><DetailHint>{period.since} — {period.until}</DetailHint></div>
-            <ModeSwitch role="group" aria-label="성과 표시 방식">
-              <ModeButton type="button" aria-pressed={mode === 'total'} onClick={() => setMode('total')}>기간 합계</ModeButton>
-              <ModeButton type="button" aria-pressed={mode === 'daily'} onClick={() => setMode('daily')}>일평균</ModeButton>
-            </ModeSwitch>
+            <Actions>
+              <ModeSwitch role="group" aria-label="성과 표시 방식">
+                <ModeButton type="button" aria-pressed={mode === 'total'} onClick={() => setMode('total')}>기간 합계</ModeButton>
+                <ModeButton type="button" aria-pressed={mode === 'daily'} onClick={() => setMode('daily')}>일평균</ModeButton>
+              </ModeSwitch>
+              <DetailActionLink to={`/workspaces/${workspaceId}/meta/ads/new${selectedAccount ? `?assetId=${selectedAccount.assetId}` : ''}`}>광고 등록</DetailActionLink>
+              <ManageLink to={metaAdEditPath(workspaceId!, { assetId: selectedAccount?.assetId })}>광고 수정</ManageLink>
+            </Actions>
           </ResultsHeader>
 
           {data.performanceLoading ? <DetailPanel><DetailStatus role="status">{assetId === null ? '전체 광고 계정의 성과를 집계하는 중…' : '광고 계정의 성과를 불러오는 중…'}</DetailStatus></DetailPanel> : data.performanceError ? (
@@ -155,7 +161,7 @@ export default function MetaPerformancePage() {
           {assetId !== null && selectedAccount ? <>
             {data.campaignsError ? <Feedback><DetailAlert role="alert">{data.campaignsError}</DetailAlert><Actions><DetailSecondaryButton onClick={data.reloadCampaigns}>캠페인 다시 조회</DetailSecondaryButton></Actions></Feedback> : null}
             {data.campaignsLoading || data.performanceLoading ? <DetailPanel><DetailStatus role="status">캠페인 목록과 성과를 확인하는 중…</DetailStatus></DetailPanel> : !data.campaignsError || data.accountPerformance ? <>
-              <CampaignPerformanceTable campaigns={data.campaigns} performance={data.accountPerformance?.campaigns ?? null} currency={data.accountPerformance?.account.currency ?? null} mode={mode} listUnavailable={Boolean(data.campaignsError)} />
+              <CampaignPerformanceTable campaigns={data.campaigns} performance={data.accountPerformance?.campaigns ?? null} currency={data.accountPerformance?.account.currency ?? null} mode={mode} listUnavailable={Boolean(data.campaignsError)} onEdit={(campaignId) => navigate(metaAdEditPath(workspaceId!, { assetId: selectedAccount.assetId, type: 'campaign', objectId: campaignId }))} />
               <DetailHint>계정 성과와 캠페인 성과는 각각 조회되므로 캠페인 행의 합계가 계정 성과와 다를 수 있습니다. 캠페인 상태는 현재 상태이며, 성과는 선택한 기간 기준입니다.</DetailHint>
             </> : null}
           </> : null}

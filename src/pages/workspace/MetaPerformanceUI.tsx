@@ -43,7 +43,7 @@ export function PerformanceSummary({ metrics, dailyAverage, currency, days, mode
           )
         })}
       </MetricGrid>
-      <SummaryNote>{mode === 'daily' ? `지출·노출·전체 클릭의 일평균은 집행하지 않은 날을 포함한 ${formatNumber(days)}일로 나눈 값입니다. ` : ''}구매 전환 금액은 조회 기간 합계이며, ROAS·CTR·CPC·CPM은 전체 기간 기준입니다. —는 계산할 수 없는 값입니다. 구매 전환 금액은 Meta 보고 기준으로 쇼핑몰 전체 매출과 다르며, ROAS 0배는 구매 추적·전환 가치 설정에 따라 표시될 수 있습니다.</SummaryNote>
+      <SummaryNote>{mode === 'daily' ? `지출·노출·전체 클릭의 일평균은 집행하지 않은 날을 포함한 ${formatNumber(days)}일로 나눈 값입니다. ` : ''}구매 전환 금액은 조회 기간 합계이며, ROAS·CTR·CPC·CPM은 전체 기간 기준입니다. Meta가 제공하지 않은 지표와 그 지표를 포함한 합계·일평균은 —로 표시하며 0으로 간주하지 않습니다. 계산할 수 없는 비율도 —로 표시합니다. 구매 전환 금액은 Meta 보고 기준으로 쇼핑몰 전체 매출과 다르며, ROAS 0배는 구매 추적·전환 가치 설정에 따라 표시될 수 있습니다.</SummaryNote>
     </Summary>
   )
 }
@@ -76,17 +76,18 @@ export function AccountPerformanceTable({ accounts, mode, onSelect }: {
           </DataTable>
         </TableRegion>
       )}
-      <TableFootnote>{mode === 'daily' ? '구매 전환 금액은 기간 합계, ROAS를 포함한 비율 지표는 전체 기간 기준입니다. ' : ''}계정별 통화로 표시하며 환산하지 않습니다. 서로 다른 시간대의 계정은 각자의 현지 날짜 범위를 기준으로 집계됩니다.</TableFootnote>
+      <TableFootnote>{mode === 'daily' ? '구매 전환 금액은 기간 합계, ROAS를 포함한 비율 지표는 전체 기간 기준입니다. ' : ''}누락된 노출·클릭은 —로 표시하며 0으로 합산하지 않습니다. 계정별 통화로 표시하며 환산하지 않습니다. 서로 다른 시간대의 계정은 각자의 현지 날짜 범위를 기준으로 집계됩니다.</TableFootnote>
     </TablePanel>
   )
 }
 
-export function CampaignPerformanceTable({ campaigns, performance, currency, mode, listUnavailable = false }: {
+export function CampaignPerformanceTable({ campaigns, performance, currency, mode, listUnavailable = false, onEdit }: {
   campaigns: MetaCampaign[]
   performance: MetaCampaignPerformance[] | null
   currency: string | null
   mode: DisplayMode
   listUnavailable?: boolean
+  onEdit?: (campaignId: string) => void
 }) {
   const id = useId()
   const [query, setQuery] = useState('')
@@ -120,7 +121,7 @@ export function CampaignPerformanceTable({ campaigns, performance, currency, mod
               const objective = row.campaign?.objective
               return (
                 <tr key={row.id}>
-                  <NameCell as="th" scope="row"><CampaignName>{row.name}</CampaignName><CampaignMeta>{row.id}</CampaignMeta><Objective title={objective || undefined}>{objective ? objectiveLabel(objective) : '목표 정보 없음'}</Objective></NameCell>
+                  <NameCell as="th" scope="row"><CampaignName>{row.name}</CampaignName><CampaignMeta>{row.id}</CampaignMeta><Objective title={objective || undefined}>{objective ? objectiveLabel(objective) : '목표 정보 없음'}</Objective>{onEdit && /^[1-9]\d*$/.test(row.id) ? <CampaignEditButton type="button" onClick={() => onEdit(row.id)} aria-label={`${row.name} 캠페인 수정`}>수정</CampaignEditButton> : null}</NameCell>
                   <td><StatusPill $tone={statusTone(status)} title={status || '캠페인 목록에서 상태를 확인할 수 없습니다.'}>{status ? statusLabel(status) : '상태 정보 없음'}</StatusPill></td>
                   {METRICS.map((metric) => <PerformanceCell key={metric.key} value={row.insight ? displayedMetric(metric.key, row.insight.metrics, row.insight.dailyAverage, mode) : undefined} kind={metric.kind} currency={currency} missingReason={noPerformanceReason} />)}
                 </tr>
@@ -129,7 +130,7 @@ export function CampaignPerformanceTable({ campaigns, performance, currency, mod
           </DataTable>
         </TableRegion>
       )}
-      <TableFootnote>{mode === 'daily' ? '구매 전환 금액은 기간 합계, ROAS를 포함한 비율 지표는 전체 기간 기준입니다. ' : ''}{performance === null ? '성과 조회 실패를 0으로 표시하지 않습니다. ' : '기간 성과가 없는 캠페인의 수치는 —로 표시합니다. '}계정 합계는 별도로 조회하므로 캠페인별 수치의 합계와 다를 수 있습니다.</TableFootnote>
+      <TableFootnote>{mode === 'daily' ? '구매 전환 금액은 기간 합계, ROAS를 포함한 비율 지표는 전체 기간 기준입니다. ' : ''}{performance === null ? '성과 조회 실패를 0으로 표시하지 않습니다. ' : '기간 성과가 없는 캠페인과 누락된 지표는 —로 표시하며 0으로 간주하지 않습니다. '}계정 합계는 별도로 조회하므로 캠페인별 수치의 합계와 다를 수 있습니다.</TableFootnote>
     </TablePanel>
   )
 }
@@ -162,6 +163,7 @@ function currencyLabel(currency: string | null): string {
 }
 
 function metricValueTitle(value: number | null | undefined, kind: MetricKind, currency: string | null): string {
+  if (value === null && kind === 'number') return 'Meta에서 이 지표를 제공하지 않았습니다. 0회로 간주하지 않습니다.'
   if (value === null && kind === 'ratio') return '지출이 0이어서 ROAS를 계산할 수 없습니다.'
   if (value === null || value === undefined || !Number.isFinite(value)) return '분모가 0이거나 값이 없어 계산할 수 없습니다.'
   const amount = formatNumber(value, true)
@@ -208,6 +210,7 @@ const SearchField = styled.label`display: grid; gap: 7px; width: min(100%, 300px
 const TableUnit = styled.p`color: ${({ theme }) => theme.colors.textMuted}; font-size: 11px; line-height: 1.8; span { display: block; }`
 const CampaignName = styled.span`display: block; color: ${({ theme }) => theme.colors.text}; font-weight: 650; overflow-wrap: anywhere;`
 const CampaignMeta = styled.span`display: block; margin-top: 4px; color: ${({ theme }) => theme.colors.textMuted}; font-size: 10px; overflow-wrap: anywhere;`
+const CampaignEditButton = styled.button`display: block; min-height: 36px; margin-top: 6px; padding: 6px 10px; border: 1px solid ${({ theme }) => theme.colors.border}; border-radius: 6px; background: white; color: ${({ theme }) => theme.colors.textSecondary}; font-size: 11px; font-weight: 600; &:hover:not(:disabled) { border-color: ${({ theme }) => theme.colors.primary}; background: ${({ theme }) => theme.colors.primaryLight}; color: ${({ theme }) => theme.colors.primary}; }`
 const Objective = styled.span`display: inline-block; margin-top: 7px; color: ${({ theme }) => theme.colors.textSecondary}; font-size: 10px; overflow-wrap: anywhere;`
 const StatusPill = styled(DetailBadge)`max-width: 150px; white-space: normal; overflow-wrap: anywhere;`
 const TableEmpty = styled.p`padding: 48px 20px; color: ${({ theme }) => theme.colors.textMuted}; font-size: 13px; line-height: 1.8; text-align: center;`
