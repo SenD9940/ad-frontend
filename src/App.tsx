@@ -19,6 +19,7 @@ import WorkspaceConnectionsPage from './pages/workspace/WorkspaceConnectionsPage
 import WorkspaceListPage from './pages/workspace/WorkspaceListPage'
 
 const AdminApp = lazy(() => import('./admin/AdminApp'))
+const StudioPages = lazy(() => import('./studio/StudioPages'))
 const CustomerSupportPage = lazy(() => import('./support/CustomerSupportPage'))
 const SupportPaymentResultPage = lazy(() => import('./support/SupportPaymentResultPage'))
 
@@ -61,6 +62,7 @@ export default function App() {
               <Route index element={<Navigate to="connections/meta" replace />} />
               <Route path="support" element={<Suspense fallback={<p role="status">기술 지원 요청을 불러오는 중…</p>}><CustomerSupportPage /></Suspense>} />
               <Route path="support/:ticketId/payment/:outcome" element={<Suspense fallback={<p role="status">결제 결과를 확인하는 중…</p>}><SupportPaymentResultPage /></Suspense>} />
+              <Route path="studio/*" element={<Suspense fallback={<p role="status">AI 스튜디오를 불러오는 중…</p>}><StudioPages /></Suspense>} />
               <Route path="members" element={<InviteWorkspacePage />} />
               <Route path="invite" element={<InviteWorkspacePage />} />
               <Route path="connections" element={<Navigate to="meta" replace />} />

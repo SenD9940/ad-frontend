@@ -1,4 +1,4 @@
-import axios, { isAxiosError } from 'axios'
+import axios, { isAxiosError, type AxiosRequestConfig } from 'axios'
 import { keysToCamelCase, keysToSnakeCase } from '../api/case'
 import { clearAdminSession, readAdminSession } from './session'
 
@@ -13,7 +13,8 @@ client.interceptors.response.use(response => { response.data = keysToCamelCase(r
   if (isAxiosError(error)) {
     if (error.response?.status === 401 && error.config?.url !== '/admin-api/auth/login') clearAdminSession()
     const result = keysToCamelCase(error.response?.data)?.result
-    return Promise.reject(new Error(result?.resultMessage || (error.response ? '요청을 처리하지 못했습니다.' : '서버에 연결하지 못했습니다. 변경 요청이었다면 최신 상태를 먼저 확인해 주세요.')))
+    const message = [result?.resultMessage, result?.resultDescription].find(value => typeof value === 'string' && value.trim() && !['에러', '잘못된 요청입니다', '성공'].includes(value))
+    return Promise.reject(new Error(message || (error.response ? '요청을 처리하지 못했습니다.' : '서버에 연결하지 못했습니다. 변경 요청이었다면 최신 상태를 먼저 확인해 주세요.')))
   }
   return Promise.reject(new Error('요청을 처리하지 못했습니다.'))
 })
@@ -21,7 +22,10 @@ export async function adminGet<T>(path: string, signal?: AbortSignal): Promise<T
   const { data } = await client.get<{ body: T }>(`/admin-api${path}`, { signal })
   return data.body
 }
-export async function adminWrite<T = unknown>(path: string, body: unknown = {}, method: 'post' | 'patch' = 'post'): Promise<T> {
-  const { data } = await client[method]<{ body: T }>(`/admin-api${path}`, body)
+export async function adminWrite<T = unknown>(path: string, body: unknown = {}, method: 'post' | 'patch' = 'post', options?: Pick<AxiosRequestConfig, 'timeout' | 'signal'>): Promise<T> {
+  const { data } = await client[method]<{ body: T }>(`/admin-api${path}`, body, options)
   return data.body
+}
+export async function adminDelete(path: string): Promise<void> {
+  await client.delete(`/admin-api${path}`)
 }

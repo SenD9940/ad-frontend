@@ -25,7 +25,7 @@ export function validateProductForm(values: NaverProductFormValues, images: File
     if (!integer(values[key], min) || Number(values[key]) > max) errors[key] = `${label}는 ${min}~${max.toLocaleString('ko-KR')} 범위의 정수로 입력해 주세요.`
   }
   if (!images.length) errors.images = '대표 상품 이미지를 선택해 주세요.'
-  required('detailContent', '상세 설명', 50000)
+  if (!values.studioOutputId || values.detailContent.trim()) required('detailContent', '상세 설명', 50000)
   if (!options.origins.some((item) => item.code === values.originAreaCode) || options.origins.some((item) => item.code !== values.originAreaCode && item.code.startsWith(values.originAreaCode))) errors.originAreaCode = '최종 원산지를 선택해 주세요.'
   if (values.originAreaCode === '04') required('originAreaContent', '원산지 상세', 200)
   if (values.originAreaCode.startsWith('02')) required('importer', '수입자', 200)
@@ -57,7 +57,7 @@ export function buildProductRequest(values: NaverProductFormValues, notice: Nave
     return value ? [[field.key, field.type === 'BOOLEAN' ? value === 'true' : field.type === 'NUMBER' ? Number(value) : value]] : []
   }))
   return { name: values.name.trim(), categoryId: values.categoryId, salePrice: Number(values.salePrice), stockQuantity: Number(values.stockQuantity),
-    detailContent: values.detailContent.trim(), originAreaCode: values.originAreaCode,
+    detailContent: values.detailContent.trim(), ...(values.studioOutputId ? { studioOutputId: values.studioOutputId } : {}), originAreaCode: values.originAreaCode,
     ...(values.originAreaContent?.trim() ? { originAreaContent: values.originAreaContent.trim() } : {}), ...(values.importer?.trim() ? { importer: values.importer.trim() } : {}),
     taxType: values.taxType as NaverProductCreateRequest['taxType'], minorPurchasable: values.minorPurchasable === 'true',
     afterServiceTelephoneNumber: values.afterServiceTelephoneNumber.trim(), afterServiceGuideContent: values.afterServiceGuideContent.trim(),

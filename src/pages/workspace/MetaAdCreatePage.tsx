@@ -3,6 +3,9 @@ import { Link, useParams, useSearchParams } from 'react-router-dom'
 import styled from 'styled-components'
 import { ApiError } from '../../api/http'
 import { createMetaAd, MetaAdCreationError } from '../../api/metaAdCreation'
+import { uploadMetaAdImage } from '../../api/metaAdImages'
+import { downloadStudioImage } from '../../studio/api'
+import StudioImportPanel, { type StudioImportOutput } from '../../components/studio/StudioImportPanel'
 import { listPlatformConnections } from '../../api/platformConnections'
 import { useMetaAdPages } from '../../hooks/useMetaAdPages'
 import type { MetaAdCreateRequest, MetaAdCreateResult } from '../../types/metaAdCreation'
@@ -43,6 +46,7 @@ export default function MetaAdCreatePage() {
   const [retryReady, setRetryReady] = useState(false)
   const mainTitle = useRef<HTMLHeadingElement>(null)
   const assetIdParam = params.get('assetId') ?? ''
+  const studioOutputId = params.get('studioOutputId') ?? ''
   const accounts = connections.filter((connection) => connection.providerType === 'META').flatMap((connection) => (
     connection.assets.filter((asset) => asset.platformType === 'FACEBOOK' && asset.assetType === 'AD_ACCOUNT').map((asset) => ({ asset, connection }))
   ))
@@ -89,14 +93,28 @@ export default function MetaAdCreatePage() {
   }
 
   function changeAccount(value: string) {
-    if (pending.current || review || blocked || result) return
+    if (pending.current || review || blocked || result || imageUploading) return
     accountPages.selectPage('')
-    setParams(value ? { assetId: value } : {}, { replace: true })
+    setParams(current => { const next = new URLSearchParams(current); if (value) next.set('assetId', value); else next.delete('assetId'); return next }, { replace: true })
     setValues((current) => ({ ...current, pageAssetId: '', instagramAssetId: '', imageKey: '' }))
     setImageState(null)
     setUploadingContext(null)
     setErrors({})
     setAccountError('')
+  }
+
+  async function applyStudioImage(output: StudioImportOutput, signal: AbortSignal) {
+    if (!selected || selected.connection.requiresReauth || imageUploading || pending.current) return
+    setUploadingContext(imageContext)
+    try {
+      const file = await downloadStudioImage(Number(workspaceId), output.id)
+      if (signal.aborted) return
+      const image = await uploadMetaAdImage(Number(workspaceId), selected.asset.id, file, undefined, signal)
+      if (signal.aborted) return
+      setImageState({ context: imageContext, image: { ...image, workspaceId: Number(workspaceId), assetId: selected.asset.id, file, fileName: file.name, studioOutputId: output.id } })
+      setValues(current => ({ ...current, imageSource: 'upload', imageKey: image.imageKey }))
+      setErrors({})
+    } finally { if (active.current) setUploadingContext(current => current === imageContext ? null : current) }
   }
 
   function prepareReview(event: FormEvent<HTMLFormElement>) {
@@ -204,8 +222,9 @@ export default function MetaAdCreatePage() {
         {busy ? <DetailStatus role="status">광고를 등록하는 중입니다. 결과가 나올 때까지 기다려 주세요.</DetailStatus> : null}
         <Actions><DetailSecondaryButton type="button" disabled={busy} onClick={() => setReview(null)}>입력 수정</DetailSecondaryButton><DetailPrimaryButton type="button" onClick={() => void submitAd()} disabled={busy || Boolean(failure && !retryReady)}>{busy ? '등록 중…' : '일시정지 상태로 등록'}</DetailPrimaryButton></Actions>
       </StackBody></DetailPanel> : !blocked ? <Form onSubmit={prepareReview} noValidate>
+        {studioOutputId && <StudioImportPanel key={`${imageScope}:${studioOutputId}`} workspaceId={Number(workspaceId)} outputId={studioOutputId} disabled={!selected || selected.connection.requiresReauth || busy || imageUploading} applied={uploadedImage?.studioOutputId === Number(studioOutputId)} onApply={applyStudioImage} />}
         <DetailPanel><PanelHeading><h2>광고 계정 선택</h2><DetailBadge>등록 준비</DetailBadge></PanelHeading><StackBody>
-          <AccountLabel htmlFor="ad-create-account">광고 계정<select id="ad-create-account" value={assetIdParam} disabled={busy} onChange={(event) => changeAccount(event.target.value)} aria-invalid={Boolean(accountError)} aria-describedby={accountError ? 'ad-create-account-error' : undefined}>
+          <AccountLabel htmlFor="ad-create-account">광고 계정<select id="ad-create-account" value={assetIdParam} disabled={busy || imageUploading} onChange={(event) => changeAccount(event.target.value)} aria-invalid={Boolean(accountError)} aria-describedby={accountError ? 'ad-create-account-error' : undefined}>
             <option value="">광고 계정을 선택해 주세요</option>
             {assetIdParam && !selected ? <option value={assetIdParam} disabled>저장되지 않은 광고 계정입니다</option> : null}
             {accounts.map(({ asset, connection }) => <option key={asset.id} value={asset.id}>{asset.name || asset.externalId} · {connection.accountName || 'Meta 계정'} · {asset.externalId}</option>)}
@@ -242,7 +261,7 @@ export default function MetaAdCreatePage() {
           /> : null}
         </StackBody></DetailPanel>
         {selected && !selected.connection.requiresReauth && page ? <>
-          <MetaAdCreationForm values={values} onChange={changeValues} errors={errors} disabled={busy} instagramProfiles={profiles} imageInput={
+          <MetaAdCreationForm values={values} onChange={changeValues} errors={errors} disabled={busy || imageUploading} instagramProfiles={profiles} imageInput={
             <ImageField>
               <Actions role="group" aria-label="광고 이미지 등록 방식">
                 <ImageSourceButton type="button" aria-pressed={values.imageSource === 'upload'} disabled={busy || imageUploading} onClick={() => changeValues({ imageSource: 'upload' })}>이미지 업로드</ImageSourceButton>
@@ -252,7 +271,7 @@ export default function MetaAdCreatePage() {
                 key={`${workspaceId}:${selected.asset.id}`}
                 workspaceId={Number(workspaceId)}
                 assetId={selected.asset.id}
-                disabled={busy}
+                disabled={busy || imageUploading}
                 value={uploadedImage}
                 error={errors.imageKey}
                 onChange={(image) => {

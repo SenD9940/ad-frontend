@@ -2,6 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } fro
 import { useParams, useSearchParams } from 'react-router-dom'
 import styled from 'styled-components'
 import { ApiError } from '../../api/http'
+import { downloadStudioImage } from '../../studio/api'
+import StudioImportPanel, { type StudioImportOutput } from '../../components/studio/StudioImportPanel'
+import StudioDetailPreview from '../../components/studio/StudioDetailPreview'
 import { listSavedNaverStores } from '../../api/naverStores'
 import { createNaverProduct, getNaverProductCreationOptions, getNaverProductNotices, NaverProductCreationError } from '../../api/naverProductCreation'
 import type { NaverStore } from '../../types/naverStore'
@@ -30,7 +33,7 @@ function ProductCreatePage({ workspaceId }: { workspaceId: number }) {
     <DetailHeader><div><DetailEyebrow>네이버 / 스마트스토어</DetailEyebrow><DetailTitle>스마트스토어 상품 등록</DetailTitle><DetailLead>이미지와 상품 정보를 입력하고, 등록 내용을 확인한 뒤 스마트스토어에 등록하세요.</DetailLead></div>{!locked && <BackLink to={backPath}>상품 및 판매 성과</BackLink>}</DetailHeader>
     {inventory.loading ? <DetailPanel><DetailStatus role="status">저장된 스마트스토어를 불러오는 중…</DetailStatus></DetailPanel> : inventory.error ? <LoadError message={inventory.error} retry={inventory.reload} /> : !stores.length ? <DetailPanel><DetailEmpty><h2>먼저 스마트스토어를 연결해 주세요</h2><p>등록할 스마트스토어 채널을 저장하면 상품을 등록할 수 있습니다.</p><DetailActionLink to={assetsPath}>스마트스토어 연결</DetailActionLink></DetailEmpty></DetailPanel> : <>
       <DetailPanel><StackBody><ProductField name="store" label="등록할 스마트스토어" hint="스토어를 변경하면 입력한 상품 정보와 이미지 선택이 초기화됩니다.">
-        <Select id="product-store" value={selected?.assetId ?? ''} disabled={locked} onChange={(event) => setParams({ assetId: event.target.value }, { replace: true })}>
+        <Select id="product-store" value={selected?.assetId ?? ''} disabled={locked} onChange={(event) => setParams(current => { const next = new URLSearchParams(current); next.set('assetId', event.target.value); return next }, { replace: true })}>
           {!selected && <option value="">저장된 스마트스토어를 선택해 주세요</option>}
           {stores.map((item) => <option value={item.assetId} key={item.assetId}>{item.name || `스마트스토어 ${item.channelNo}`}{item.requiresReauth ? ' · 재연결 필요' : ''}</option>)}
         </Select></ProductField><DetailHint>옵션 없는 실물 상품과 국내 택배 배송을 지원합니다. 상품별 인증·허가, 복잡한 옵션이 필요한 경우 판매자센터에서 등록해 주세요.</DetailHint></StackBody></DetailPanel>
@@ -39,9 +42,13 @@ function ProductCreatePage({ workspaceId }: { workspaceId: number }) {
   </DetailPage>
 }
 
-type Review = { request: NaverProductCreateRequest; images: File[]; notice: NaverProductNotice }
+type Review = { request: NaverProductCreateRequest; images: File[]; notice: NaverProductNotice; studio?: StudioImportOutput }
 
 function StoreProductCreation({ workspaceId, store, backPath, onLock }: { workspaceId: number; store: NaverStore; backPath: string; onLock: (locked: boolean) => void }) {
+  const [params] = useSearchParams()
+  const studioOutputId = params.get('studioOutputId') ?? ''
+  const [studioOutput, setStudioOutput] = useState<StudioImportOutput | null>(null)
+  const [importing, setImporting] = useState(false)
   const [values, setValues] = useState(emptyNaverProductForm)
   const [images, setImages] = useState<File[]>([])
   const [errors, setErrors] = useState<ProductFormErrors>({})
@@ -68,24 +75,37 @@ function StoreProductCreation({ workspaceId, store, backPath, onLock }: { worksp
   }, [busy])
 
   function change(patch: Partial<NaverProductFormValues>) {
-    if (pending.current || review || result) return
+    if (pending.current || review || result || importing) return
     setValues((current) => ({ ...current, ...patch,
       ...(patch.categoryId !== undefined && patch.categoryId !== current.categoryId ? { noticeType: '', noticeFields: {} } : {}),
       ...(patch.noticeType !== undefined && patch.noticeType !== current.noticeType ? { noticeFields: {} } : {}),
     }))
     setErrors({})
   }
+  async function applyStudioOutput(output: StudioImportOutput, signal: AbortSignal) {
+    if (importing || pending.current || review || result) return
+    if (images.length >= 10) throw new Error('이미지는 최대 10장입니다. 기존 이미지 한 장을 제거한 뒤 적용해 주세요.')
+    setImporting(true); onLock(true)
+    try {
+      const file = await downloadStudioImage(workspaceId, output.id)
+      if (signal.aborted) return
+      if (file.size + images.reduce((total, image) => total + image.size, 0) > 20 * 1024 * 1024) throw new Error('이미지 전체 용량은 20MiB 이하여야 합니다. 기존 이미지를 줄인 뒤 적용해 주세요.')
+      setImages(current => [...current, file])
+      setValues(current => ({ ...current, name: current.name || output.title.slice(0, 100), ...(output.kind === 'DETAIL_PAGE' ? { studioOutputId: output.id } : {}) }))
+      setStudioOutput(output); setErrors({})
+    } finally { if (!signal.aborted) { setImporting(false); onLock(false) } }
+  }
   function scrollToReview() { requestAnimationFrame(() => { title.current?.scrollIntoView({ block: 'start', behavior: 'instant' }); title.current?.focus() }) }
   function prepare(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (pending.current || review || !options.data || options.error || result) return
+    if (pending.current || review || importing || !options.data || options.error || result) return
     const next = validateProductForm(values, images, options.data, notice)
     setErrors(next)
     const first = Object.keys(next)[0]
     if (first) { requestAnimationFrame(() => document.getElementById(`product-${first}`)?.focus()); return }
     if (!notice || notices.loading || notices.error) return
     setFailure(null)
-    setReview({ request: buildProductRequest(values, notice), images: [...images], notice })
+    setReview({ request: buildProductRequest(values, notice), images: [...images], notice, studio: values.studioOutputId === studioOutput?.id ? studioOutput ?? undefined : undefined })
     onLock(true)
     scrollToReview()
   }
@@ -127,10 +147,12 @@ function StoreProductCreation({ workspaceId, store, backPath, onLock }: { worksp
     <Actions><DetailSecondaryButton type="button" disabled={busy || Boolean(failure?.unknown && !checked)} onClick={edit}>{failure?.unknown ? '확인 후 입력 수정' : '입력 수정'}</DetailSecondaryButton>{!failure && <DetailPrimaryButton type="button" disabled={busy} onClick={() => void register()}>{busy ? '등록 중…' : review.request.displayStatus === 'ON' ? '스토어에 공개 등록' : '전시 중지로 상품 등록'}</DetailPrimaryButton>}{!busy && <BackLink to={backPath}>상품 목록</BackLink>}</Actions>
   </StackBody></DetailPanel>
   return <Form onSubmit={prepare} noValidate>
+    {studioOutputId && <StudioImportPanel key={`${workspaceId}:${store.assetId}:${studioOutputId}`} workspaceId={workspaceId} outputId={studioOutputId} disabled={importing} applied={studioOutput?.kind === 'DETAIL_PAGE' ? values.studioOutputId === Number(studioOutputId) : studioOutput?.id === Number(studioOutputId) && images.some(file => file.name.startsWith(`studio-${studioOutputId}.`))} onApply={applyStudioOutput} />}
+    {values.studioOutputId && studioOutput?.detailHtml && <DetailPanel><PanelHeading><h2>적용할 AI 상세페이지</h2></PanelHeading><StackBody><StudioDetailPreview html={studioOutput.detailHtml} imageUrl={studioOutput.imageUrl} /><DetailHint>판매가·원산지·고시 정보는 실제 상품에 맞게 직접 입력해 주세요. 등록 시 상세 이미지를 네이버에 저장합니다.</DetailHint></StackBody></DetailPanel>}
     <NaverProductCreationForm values={values} images={images} options={options.data} notices={notices.data?.types ?? []} noticesLoading={notices.loading} noticesError={notices.error}
-      errors={errors} onChange={change} onImages={(next) => { setImages(next); setErrors({}) }} onNoticesReload={notices.reload} />
+      errors={errors} onChange={change} onImages={(next) => { if (!importing) { setImages(next); setErrors({}) } }} onNoticesReload={notices.reload} />
     {Object.keys(errors).length > 0 && <DetailAlert role="alert">필수 항목과 입력 내용을 확인해 주세요. 오류가 있는 첫 번째 항목으로 이동했습니다.</DetailAlert>}
-    <Actions><DetailPrimaryButton type="submit" disabled={notices.loading}>등록 내용 확인</DetailPrimaryButton><BackLink to={backPath}>취소</BackLink><DetailSecondaryButton type="button" onClick={options.reload}>등록 정보 다시 불러오기</DetailSecondaryButton></Actions>
+    <Actions><DetailPrimaryButton type="submit" disabled={notices.loading || importing}>등록 내용 확인</DetailPrimaryButton><BackLink to={backPath}>취소</BackLink><DetailSecondaryButton type="button" disabled={importing} onClick={options.reload}>등록 정보 다시 불러오기</DetailSecondaryButton></Actions>
   </Form>
 }
 
@@ -152,7 +174,7 @@ function ProductReview({ review, store, options }: { review: Review; store: Nave
       return [field.label, typeof value === 'boolean' ? value ? '예' : '아니오' : field.options.find((option) => option.value === String(value))?.label ?? String(value)]
     }),
   ]
-  return <><ReviewImages>{review.images.map((file, index) => <div key={index}><NaverProductImagePreview file={file} alt={`${index === 0 ? '대표' : '추가'} 상품 이미지`} /><small>{index === 0 ? '대표 이미지' : `추가 ${index}`}</small></div>)}</ReviewImages><ReviewList>{rows.map(([label, value], index) => <div key={`${label}:${index}`}><dt>{label}</dt><dd>{value}</dd></div>)}</ReviewList></>
+  return <><ReviewImages>{review.images.map((file, index) => <div key={index}><NaverProductImagePreview file={file} alt={`${index === 0 ? '대표' : '추가'} 상품 이미지`} /><small>{index === 0 ? '대표 이미지' : `추가 ${index}`}</small></div>)}</ReviewImages>{review.studio?.detailHtml && <StudioDetailPreview html={review.studio.detailHtml} imageUrl={review.studio.imageUrl} />}<ReviewList>{rows.map(([label, value], index) => <div key={`${label}:${index}`}><dt>{label}</dt><dd>{value}</dd></div>)}</ReviewList></>
 }
 
 function LoadError({ message, retry }: { message: string; retry: () => void }) {

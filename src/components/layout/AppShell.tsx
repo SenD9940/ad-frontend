@@ -21,7 +21,7 @@ export default function AppShell({ children, workspaceId, workspaceName }: { chi
   const activePlatform = platforms.find((p) => pathname.endsWith(`/connections/${p.key}`))
   const metaActive = Boolean(workspaceId && (pathname.startsWith(`/workspaces/${workspaceId}/connections/meta`) || pathname.startsWith(`/workspaces/${workspaceId}/meta/`)))
   const naverActive = Boolean(workspaceId && (pathname.startsWith(`/workspaces/${workspaceId}/connections/naver`) || pathname.startsWith(`/workspaces/${workspaceId}/naver/`)))
-  const pageName = pathname.endsWith('/support') ? '기술 지원' : pathname.endsWith('/naver/products/new') ? '스마트스토어 상품 등록' : pathname.endsWith('/meta/ads/new') ? 'Meta 광고 등록' : pathname.endsWith('/meta/ads/edit') ? 'Meta 광고 수정' : pathname.endsWith('/connections/meta/assets') ? 'Meta 자산 편집' : pathname.endsWith('/meta/performance') ? 'Meta 광고 성과' : pathname.endsWith('/connections/naver/assets') ? '네이버 자산 편집' : pathname.endsWith('/naver/performance') ? '상품 및 판매 성과' : activePlatform ? `${activePlatform.name} 연결` : /\/(members|invite)$/.test(pathname) && workspaceId ? '멤버 관리' : pathname.endsWith('/new') ? '워크스페이스 만들기' : pathname === '/invite' ? '초대 수락' : pathname.includes('/callback') ? '플랫폼 연결' : '워크스페이스'
+  const pageName = pathname.includes('/studio') ? 'AI 스튜디오' : pathname.endsWith('/support') ? '기술 지원' : pathname.endsWith('/naver/products/new') ? '스마트스토어 상품 등록' : pathname.endsWith('/meta/ads/new') ? 'Meta 광고 등록' : pathname.endsWith('/meta/ads/edit') ? 'Meta 광고 수정' : pathname.endsWith('/connections/meta/assets') ? 'Meta 자산 편집' : pathname.endsWith('/meta/performance') ? 'Meta 광고 성과' : pathname.endsWith('/connections/naver/assets') ? '네이버 자산 편집' : pathname.endsWith('/naver/performance') ? '상품 및 판매 성과' : activePlatform ? `${activePlatform.name} 연결` : /\/(members|invite)$/.test(pathname) && workspaceId ? '멤버 관리' : pathname.endsWith('/new') ? '워크스페이스 만들기' : pathname === '/invite' ? '초대 수락' : pathname.includes('/callback') ? '플랫폼 연결' : '워크스페이스'
 
   return (
     <Shell>
@@ -37,6 +37,7 @@ export default function AppShell({ children, workspaceId, workspaceName }: { chi
             <NavLabel>WORKSPACE</NavLabel>
             <NavItem to="/workspaces" end><Icon name="grid" size={18} />모든 워크스페이스</NavItem>
             {workspaceId ? <NavItem to={`/workspaces/${workspaceId}/members`} className={pathname.endsWith('/invite') ? 'active' : undefined}><Icon name="users" size={18} />멤버 관리</NavItem> : <NavItem to="/workspaces/new"><Icon name="plus" size={18} />워크스페이스 만들기</NavItem>}
+            {workspaceId && <NavItem to={`/workspaces/${workspaceId}/studio`}><Icon name="grid" size={18} />AI 스튜디오</NavItem>}
             {workspaceId && <NavItem to={`/workspaces/${workspaceId}/support`}><Icon name="help" size={18} />기술 지원</NavItem>}
           </Nav>}
           {workspaceId ? <Nav aria-label="광고 플랫폼"><NavLabel>PLATFORMS</NavLabel>{platforms.filter(p => !support || !p.soon).map((p) => {

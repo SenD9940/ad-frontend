@@ -9,6 +9,7 @@ export type UploadedMetaAdImage = MetaAdImageUploadResponse & {
   assetId: number
   file: File
   fileName: string
+  studioOutputId?: number
 }
 
 export type MetaAdImageInputProps = {

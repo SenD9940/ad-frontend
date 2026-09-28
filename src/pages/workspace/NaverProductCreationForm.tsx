@@ -44,7 +44,8 @@ export function NaverProductCreationForm({ values, images, options, notices, not
     </Section>
     <Section number="02" title="이미지 및 상세 설명" description="고객에게 보여 줄 상품 이미지와 설명을 준비하세요.">
       <NaverProductImages images={images} disabled={false} error={errors.images} onChange={onImages} />
-      {text('detailContent', '상세 설명', { multiline: true, maxLength: 50000, hint: '일반 텍스트로 입력하세요. 줄바꿈을 유지하며 HTML 태그는 문자로 표시합니다.' })}
+      {values.studioOutputId && <DetailHint>AI 상세페이지가 연결되어 있습니다. 등록 시 상세 이미지와 설명이 함께 반영됩니다. <DetailSecondaryButton type="button" onClick={() => onChange({ studioOutputId: undefined })}>AI 상세페이지 연결 해제</DetailSecondaryButton></DetailHint>}
+      {text('detailContent', values.studioOutputId ? '상세페이지 아래에 추가할 설명' : '상세 설명', { multiline: true, maxLength: 50000, optional: Boolean(values.studioOutputId), hint: '일반 텍스트로 입력하세요. 줄바꿈을 유지하며 HTML 태그는 문자로 표시합니다.' })}
     </Section>
     <Section number="03" title="원산지 및 고객 지원" description="실제 상품의 원산지와 판매자 A/S 정보를 입력하세요.">
       <ProductField name="originSearch" label="원산지 검색" optional><Input id="product-originSearch" type="search" value={originQuery} placeholder="국가 또는 지역으로 검색" onChange={(event) => setOriginQuery(event.target.value)} /></ProductField>

@@ -22,6 +22,7 @@ export type NaverProductCreateRequest = {
   returnDeliveryFee: number; exchangeDeliveryFee: number
   noticeType: string; noticeFields: Record<string, string | boolean | number>
   displayStatus: 'ON' | 'SUSPENSION'; naverShoppingRegistration: boolean
+  studioOutputId?: number
 }
 
 export type NaverProductCreateResult = {
