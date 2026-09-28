@@ -22,6 +22,7 @@ const NaverOAuthCallbackPage = lazy(() => import('./pages/workspace/NaverOAuthCa
 const NaverConnectionsPage = lazy(() => import('./pages/workspace/NaverConnectionsPage'))
 const NaverHomePage = lazy(() => import('./pages/workspace/NaverHomePage'))
 const NaverPerformancePage = lazy(() => import('./pages/workspace/NaverPerformancePage'))
+const NaverProductCreatePage = lazy(() => import('./pages/workspace/NaverProductCreatePage'))
 const MetaPerformancePage = lazy(() => import('./pages/workspace/MetaPerformancePage'))
 const MetaHomePage = lazy(() => import('./pages/workspace/MetaHomePage'))
 const MetaAdCreatePage = lazy(() => import('./pages/workspace/MetaAdCreatePage'))
@@ -90,6 +91,11 @@ export default function App() {
               <Route path="naver/performance" element={
                 <Suspense fallback={<p role="status">스마트스토어 성과 화면을 불러오는 중…</p>}>
                   <NaverPerformancePage />
+                </Suspense>
+              } />
+              <Route path="naver/products/new" element={
+                <Suspense fallback={<p role="status">스마트스토어 상품 등록 화면을 불러오는 중…</p>}>
+                  <NaverProductCreatePage />
                 </Suspense>
               } />
               <Route path="connections/threads" element={<PlatformComingSoonPage platform="threads" />} />

@@ -64,7 +64,7 @@ function NaverPerformanceContent({ workspaceId }: { workspaceId: number }) {
           <DetailPanelBody><PeriodForm key={`${period.since}:${period.until}`} period={period} onApply={applyPeriod} loading={model.salesLoading} /></DetailPanelBody>
         </DetailPanel>
         {model.salesLoading ? <DetailPanel><DetailStatus role="status">기간 내 결제 주문을 집계하는 중…</DetailStatus></DetailPanel> : model.salesError ? <RequestError title="판매 성과를 확인할 수 없습니다" message={model.salesError} onRetry={validateNaverPeriod(period) ? undefined : model.reloadSales} hint="상품 목록은 별도로 조회됩니다. 주문 조회 권한이 없으면 애플리케이션의 주문 권한을 확인해 주세요." /> : model.sales && <NaverSalesOverview data={model.sales} onReload={model.reloadSales} />}
-        <NaverProductList data={model.products} loading={model.productsLoading} error={model.productsError} onReload={model.reloadProducts} onPage={(nextPage) => setPagination({ assetId, page: nextPage })} />
+        <NaverProductList data={model.products} loading={model.productsLoading} error={model.productsError} onReload={model.reloadProducts} onPage={(nextPage) => setPagination({ assetId, page: nextPage })} createPath={`/workspaces/${workspaceId}/naver/products/new?assetId=${model.selected!.assetId}`} />
       </>}
     </>}
   </DetailPage>

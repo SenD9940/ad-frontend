@@ -1,7 +1,7 @@
 import styled from 'styled-components'
 import type { NaverProducts, NaverSales } from '../../types/naverStore'
 import {
-  DetailAlert, DetailBadge, DetailEmpty, DetailHint, DetailPanel, DetailPanelBody,
+  DetailActionLink, DetailAlert, DetailBadge, DetailEmpty, DetailHint, DetailPanel, DetailPanelBody,
   DetailSecondaryButton, DetailStatus, PanelHeading,
 } from './WorkspaceDetailUI'
 
@@ -43,11 +43,11 @@ export function NaverSalesOverview({ data, onReload }: { data: NaverSales; onRel
   </>
 }
 
-export function NaverProductList({ data, loading, error, onReload, onPage }: {
-  data: NaverProducts | null; loading: boolean; error: string; onReload: () => void; onPage: (page: number) => void
+export function NaverProductList({ data, loading, error, onReload, onPage, createPath }: {
+  data: NaverProducts | null; loading: boolean; error: string; onReload: () => void; onPage: (page: number) => void; createPath?: string
 }) {
   return <TablePanel aria-label="판매 중인 상품">
-    <PanelHeading><div><h2>판매 중인 상품</h2><p>현재 판매 상태 기준 · 위의 판매 성과 조회 기간과 무관합니다.</p></div><ProductActions>{data && data.totalElements !== null && <DetailBadge>{format(data.totalElements)}개</DetailBadge>}<DetailSecondaryButton type="button" onClick={onReload} disabled={loading}>상품 새로고침</DetailSecondaryButton></ProductActions></PanelHeading>
+    <PanelHeading><div><h2>판매 중인 상품</h2><p>현재 판매 상태 기준 · 위의 판매 성과 조회 기간과 무관합니다.</p></div><ProductActions>{data && data.totalElements !== null && <DetailBadge>{format(data.totalElements)}개</DetailBadge>}<DetailSecondaryButton type="button" onClick={onReload} disabled={loading}>상품 새로고침</DetailSecondaryButton>{createPath && <DetailActionLink to={createPath}>상품 등록</DetailActionLink>}</ProductActions></PanelHeading>
     {loading ? <DetailStatus role="status">판매 중인 상품을 불러오는 중…</DetailStatus> : error ? <DetailEmpty><h3>상품을 불러오지 못했습니다</h3><DetailAlert role="alert">{error}</DetailAlert><p>상품 조회 권한과 연결 상태를 확인해 주세요. 판매 성과는 별도로 조회됩니다.</p><DetailSecondaryButton type="button" onClick={onReload}>상품 다시 조회</DetailSecondaryButton></DetailEmpty> : data && <>
       {data.items.length ? <><ScrollHint>표를 좌우로 이동해 가격과 재고를 확인하세요.</ScrollHint><TableRegion role="region" aria-label="판매 중인 상품 목록" tabIndex={0}>
         <DataTable><caption>판매 중인 상품의 현재 판매가와 재고</caption><thead><tr><th scope="col">상품</th><th scope="col">판매가</th><th scope="col">재고</th><th scope="col">판매 상태</th></tr></thead><tbody>{data.items.map((item) => <tr key={item.productId}><NameCell scope="row"><ProductName>{safeImage(item.imageUrl) ? <Thumbnail src={safeImage(item.imageUrl)!} alt="" loading="lazy" referrerPolicy="no-referrer" onError={(event) => { event.currentTarget.hidden = true }} /> : <ImagePlaceholder aria-hidden="true">N</ImagePlaceholder>}<div><strong>{item.name}</strong><small>상품 번호 {item.productId}</small></div></ProductName></NameCell><td>{item.discountedPrice !== null ? <Price><strong>{money(item.discountedPrice)}</strong><small>할인 전 {money(item.salePrice)}</small></Price> : money(item.salePrice)}</td><td>{item.stockQuantity === null ? '—' : `${format(item.stockQuantity)}개`}</td><td><DetailBadge $tone={item.status === 'SALE' ? 'success' : undefined}>{item.status === 'SALE' ? '판매 중' : item.status}</DetailBadge></td></tr>)}</tbody></DataTable>
@@ -88,7 +88,7 @@ const Thumbnail = styled.img`width: 48px; height: 48px; flex-shrink: 0; border: 
 const ImagePlaceholder = styled.span`display: grid; place-items: center; width: 48px; height: 48px; flex-shrink: 0; border-radius: 8px; color: #9cb5a8; background: #f0f5f2; font-size: 18px; font-weight: 800;`
 const ScrollHint = styled.p`padding: 10px 22px; border-bottom: 1px solid ${({ theme }) => theme.colors.border}; color: ${({ theme }) => theme.colors.textMuted}; font-size: 10px;`
 const TableEmpty = styled.p`padding: 48px 20px; color: ${({ theme }) => theme.colors.textMuted}; font-size: 13px; line-height: 1.8; text-align: center;`
-const ProductActions = styled.div`display: flex; align-items: center; gap: 12px;`
+const ProductActions = styled.div`display: flex; align-items: center; flex-wrap: wrap; gap: 12px;`
 const Pagination = styled.div`display: flex; justify-content: center; align-items: center; gap: 18px; padding: 18px; border-top: 1px solid ${({ theme }) => theme.colors.border}; font-size: 12px; color: ${({ theme }) => theme.colors.textSecondary};`
 const ProductNote = styled.div`padding: 0 22px 20px;`
 
