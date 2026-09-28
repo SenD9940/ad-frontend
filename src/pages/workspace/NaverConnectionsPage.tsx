@@ -1,3 +1,4 @@
+import { readSupportSession } from '../../support/session'
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react'
 import styled from 'styled-components'
 import { useParams } from 'react-router-dom'
@@ -20,6 +21,8 @@ export default function NaverConnectionsPage() {
 }
 
 function NaverConnectionsContent() {
+  const support = readSupportSession()
+  const readOnlySupport = support?.accessMode === 'READ_ONLY'
   const {
     workspaceId, isOwner, connections, loading, error, reload, channels, channelErrors, channelLoading,
     selected, connecting, connectError, connectMessage, connect, savingId, saveError,
@@ -59,7 +62,7 @@ function NaverConnectionsContent() {
         )}
       </DetailHeader>
 
-      <DetailPanel aria-label="네이버 연결 방식">
+      {!support && <DetailPanel aria-label="네이버 연결 방식">
         <DetailPanelBody>
           {!loading && isOwner && selfTestAvailability?.available && <SelfTestSection>
             <div><DetailBadge $tone="success">내 스토어 테스트</DetailBadge><DetailHint>저장해 둔 애플리케이션 정보로 내 스마트스토어를 연결합니다. 추가 입력 없이 채널을 확인할 수 있어요.</DetailHint></div>
@@ -84,7 +87,7 @@ function NaverConnectionsContent() {
           {!loading && isOwner && manualAllowed && !formTarget && <ManualAction type="button" onClick={() => setFormTarget({})} disabled={busy}>애플리케이션 정보로 직접 연결</ManualAction>}
           {!loading && !isOwner && <DetailHint>새 계정 연결과 재연결은 워크스페이스 소유자만 할 수 있습니다.</DetailHint>}
         </DetailPanelBody>
-      </DetailPanel>
+      </DetailPanel>}
 
       {connectMessage && <DetailAlert $success role="status">{connectMessage}</DetailAlert>}
       {connectError && !isOwner && <DetailAlert role="alert">{connectError}</DetailAlert>}
@@ -163,8 +166,8 @@ function NaverConnectionsContent() {
                           <>
                             <BulkActions>
                               <div role="group" aria-label={`${connection.accountName || '네이버 계정'} 채널 일괄 선택`}>
-                                <DetailSecondaryButton type="button" onClick={() => selectAllChannels(connection.id)} disabled={busy || selectedCount === available.length}>전체 선택</DetailSecondaryButton>
-                                <DetailSecondaryButton type="button" onClick={() => clearChannelSelection(connection.id)} disabled={busy || chosen.size === 0}>전체 해제</DetailSecondaryButton>
+                                <DetailSecondaryButton type="button" onClick={() => selectAllChannels(connection.id)} disabled={readOnlySupport || busy || selectedCount === available.length}>전체 선택</DetailSecondaryButton>
+                                <DetailSecondaryButton type="button" onClick={() => clearChannelSelection(connection.id)} disabled={readOnlySupport || busy || chosen.size === 0}>전체 해제</DetailSecondaryButton>
                               </div>
                               <span role="status">전체 {available.length}개 중 {selectedCount}개 선택 · 최대 {NAVER_CHANNEL_SELECT_MAX}개</span>
                             </BulkActions>
@@ -175,7 +178,7 @@ function NaverConnectionsContent() {
                                 return (
                                   <ChannelRow key={channel.channelNo} $selected={chosen.has(channel.channelNo)}>
                                     <ChannelLabel htmlFor={checkboxId}>
-                                      <input id={checkboxId} type="checkbox" checked={chosen.has(channel.channelNo)} onChange={() => toggleChannel(connection.id, channel.channelNo)} disabled={busy} />
+                                      <input id={checkboxId} type="checkbox" checked={chosen.has(channel.channelNo)} onChange={() => toggleChannel(connection.id, channel.channelNo)} disabled={readOnlySupport || busy} />
                                       <ChannelText><strong>{channel.name || `스마트스토어 ${channel.channelNo}`}</strong><small>채널 번호 {channel.channelNo}</small></ChannelText>
                                     </ChannelLabel>
                                     {url && <StoreLink href={url} target="_blank" rel="noopener noreferrer" aria-label={`${channel.name || '스마트스토어'} 방문 (새 창)`}>스토어 방문 <span aria-hidden="true">↗</span></StoreLink>}
@@ -186,7 +189,7 @@ function NaverConnectionsContent() {
                             <DetailHint>선택을 해제해도 이미 저장된 채널은 삭제되지 않습니다.</DetailHint>
                             <SaveRow>
                               <DetailHint>{hasNewSelection ? '선택한 채널을 저장하면 팀과 함께 사용할 수 있어요.' : selectedCount ? '선택한 채널은 이미 저장되어 있습니다.' : '저장할 채널을 선택해 주세요.'}</DetailHint>
-                              <DetailPrimaryButton type="button" onClick={() => void saveChannels(connection.id)} disabled={busy || !selectedCount}>
+                              <DetailPrimaryButton type="button" onClick={() => void saveChannels(connection.id)} disabled={readOnlySupport || busy || !selectedCount}>
                                 {savingId === connection.id ? '채널 저장 중…' : '선택한 채널 저장'}
                               </DetailPrimaryButton>
                             </SaveRow>

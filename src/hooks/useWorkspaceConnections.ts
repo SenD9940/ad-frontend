@@ -1,3 +1,4 @@
+import { readSupportSession } from '../support/session'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { ApiError } from '../api/http'
@@ -63,7 +64,7 @@ export function useWorkspaceConnections() {
 
     let cancelled = false
     Promise.all([
-      getMe(),
+      readSupportSession() ? Promise.resolve(null) : getMe(),
       getMyWorkspace(workspaceId),
       listPlatformConnections(workspaceId),
     ])

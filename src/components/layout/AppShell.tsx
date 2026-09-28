@@ -1,3 +1,4 @@
+import { readSupportSession } from '../../support/session'
 import { useState, type ReactNode } from 'react'
 import { Link, NavLink, useLocation } from 'react-router-dom'
 import styled from 'styled-components'
@@ -12,6 +13,7 @@ const platforms = [
 ]
 
 export default function AppShell({ children, workspaceId, workspaceName }: { children: ReactNode; workspaceId?: string; workspaceName?: string }) {
+  const support = readSupportSession()
   const { clearSession } = useAuth()
   const { pathname } = useLocation()
   const [openPath, setOpenPath] = useState<string | null>(null)
@@ -19,28 +21,29 @@ export default function AppShell({ children, workspaceId, workspaceName }: { chi
   const activePlatform = platforms.find((p) => pathname.endsWith(`/connections/${p.key}`))
   const metaActive = Boolean(workspaceId && (pathname.startsWith(`/workspaces/${workspaceId}/connections/meta`) || pathname.startsWith(`/workspaces/${workspaceId}/meta/`)))
   const naverActive = Boolean(workspaceId && (pathname.startsWith(`/workspaces/${workspaceId}/connections/naver`) || pathname.startsWith(`/workspaces/${workspaceId}/naver/`)))
-  const pageName = pathname.endsWith('/naver/products/new') ? '스마트스토어 상품 등록' : pathname.endsWith('/meta/ads/new') ? 'Meta 광고 등록' : pathname.endsWith('/meta/ads/edit') ? 'Meta 광고 수정' : pathname.endsWith('/connections/meta/assets') ? 'Meta 자산 편집' : pathname.endsWith('/meta/performance') ? 'Meta 광고 성과' : pathname.endsWith('/connections/naver/assets') ? '네이버 자산 편집' : pathname.endsWith('/naver/performance') ? '상품 및 판매 성과' : activePlatform ? `${activePlatform.name} 연결` : /\/(members|invite)$/.test(pathname) && workspaceId ? '멤버 관리' : pathname.endsWith('/new') ? '워크스페이스 만들기' : pathname === '/invite' ? '초대 수락' : pathname.includes('/callback') ? '플랫폼 연결' : '워크스페이스'
+  const pageName = pathname.endsWith('/support') ? '기술 지원' : pathname.endsWith('/naver/products/new') ? '스마트스토어 상품 등록' : pathname.endsWith('/meta/ads/new') ? 'Meta 광고 등록' : pathname.endsWith('/meta/ads/edit') ? 'Meta 광고 수정' : pathname.endsWith('/connections/meta/assets') ? 'Meta 자산 편집' : pathname.endsWith('/meta/performance') ? 'Meta 광고 성과' : pathname.endsWith('/connections/naver/assets') ? '네이버 자산 편집' : pathname.endsWith('/naver/performance') ? '상품 및 판매 성과' : activePlatform ? `${activePlatform.name} 연결` : /\/(members|invite)$/.test(pathname) && workspaceId ? '멤버 관리' : pathname.endsWith('/new') ? '워크스페이스 만들기' : pathname === '/invite' ? '초대 수락' : pathname.includes('/callback') ? '플랫폼 연결' : '워크스페이스'
 
   return (
     <Shell>
       <Skip href="#workspace-main">본문으로 바로가기</Skip>
       <Sidebar>
         <BrandRow>
-          <Brand to="/workspaces" aria-label="United Ad 워크스페이스"><Mark aria-hidden="true"><i /><i /><i /><i /></Mark>united ad<span>.</span></Brand>
+          <Brand to={support ? `/workspaces/${support.workspaceId}/connections/meta` : "/workspaces"} aria-label="United Ad 워크스페이스"><Mark aria-hidden="true"><i /><i /><i /><i /></Mark>united ad<span>.</span></Brand>
           <MenuButton type="button" aria-expanded={menuOpen} aria-controls="app-navigation" aria-label={menuOpen ? '메뉴 닫기' : '메뉴 열기'} onClick={() => setOpenPath(menuOpen ? null : pathname)}><Icon name={menuOpen ? 'close' : 'menu'} /></MenuButton>
         </BrandRow>
         <SidebarBody id="app-navigation" $open={menuOpen} onKeyDown={(event) => { if (event.key === 'Escape') setOpenPath(null) }}>
-          <WorkspaceSwitcher to="/workspaces"><WorkspaceAvatar>{workspaceName?.slice(0, 1) || 'W'}</WorkspaceAvatar><SwitcherCopy><strong>{workspaceName || '내 워크스페이스'}</strong><small>{workspaceId ? '워크스페이스 전환' : '팀과 광고를 연결하는 공간'}</small></SwitcherCopy><Icon name="chevron" size={14} /></WorkspaceSwitcher>
-          <Nav aria-label="워크스페이스 메뉴">
+          <WorkspaceSwitcher to={support ? `/workspaces/${support.workspaceId}/connections/meta` : "/workspaces"}><WorkspaceAvatar>{workspaceName?.slice(0, 1) || 'W'}</WorkspaceAvatar><SwitcherCopy><strong>{workspaceName || '내 워크스페이스'}</strong><small>{support ? '고객 기술 지원 모드' : workspaceId ? '워크스페이스 전환' : '팀과 광고를 연결하는 공간'}</small></SwitcherCopy><Icon name="chevron" size={14} /></WorkspaceSwitcher>
+          {!support && <Nav aria-label="워크스페이스 메뉴">
             <NavLabel>WORKSPACE</NavLabel>
             <NavItem to="/workspaces" end><Icon name="grid" size={18} />모든 워크스페이스</NavItem>
             {workspaceId ? <NavItem to={`/workspaces/${workspaceId}/members`} className={pathname.endsWith('/invite') ? 'active' : undefined}><Icon name="users" size={18} />멤버 관리</NavItem> : <NavItem to="/workspaces/new"><Icon name="plus" size={18} />워크스페이스 만들기</NavItem>}
-          </Nav>
-          {workspaceId ? <Nav aria-label="광고 플랫폼"><NavLabel>PLATFORMS</NavLabel>{platforms.map((p) => {
+            {workspaceId && <NavItem to={`/workspaces/${workspaceId}/support`}><Icon name="help" size={18} />기술 지원</NavItem>}
+          </Nav>}
+          {workspaceId ? <Nav aria-label="광고 플랫폼"><NavLabel>PLATFORMS</NavLabel>{platforms.filter(p => !support || !p.soon).map((p) => {
             const active = p.key === 'meta' ? metaActive : p.key === 'naver' ? naverActive : activePlatform?.key === p.key
             return <NavItem as={Link} key={p.key} to={`/workspaces/${workspaceId}/connections/${p.key}`} className={active ? 'active' : undefined} aria-current={active ? 'page' : undefined}><PlatformMark $color={p.color}>{p.mark}</PlatformMark>{p.name}{p.soon && <Soon>준비 중</Soon>}</NavItem>
           })}</Nav> : <Guide><GuideIcon><Icon name="link" /></GuideIcon><strong>연결에서 시작되는 협업</strong><p>워크스페이스에서 광고 플랫폼을 연결하고 팀과 함께 관리하세요.</p><GuideLink to="/workspaces/new">새 공간 만들기 <Icon name="arrow" size={15} /></GuideLink></Guide>}
-          <SidebarBottom><HelpLink href="mailto:dnqlsdnqls529@orinan.kr"><Icon name="help" size={18} />도움이 필요하신가요?<Icon name="arrow" size={15} /></HelpLink><Account><AccountAvatar>U</AccountAvatar><div><strong>United Ad 계정</strong><small>팀을 위한 연결된 공간</small></div><Logout type="button" onClick={clearSession} aria-label="로그아웃" title="로그아웃"><Icon name="logout" size={18} /></Logout></Account></SidebarBottom>
+          <SidebarBottom><HelpLink href="mailto:dnqlsdnqls529@orinan.kr"><Icon name="help" size={18} />도움이 필요하신가요?<Icon name="arrow" size={15} /></HelpLink><Account><AccountAvatar>U</AccountAvatar><div><strong>{support ? '고객 기술 지원 모드' : 'United Ad 계정'}</strong><small>{support ? '상단에서 지원을 종료할 수 있습니다' : '팀을 위한 연결된 공간'}</small></div>{!support && <Logout type="button" onClick={clearSession} aria-label="로그아웃" title="로그아웃"><Icon name="logout" size={18} /></Logout>}</Account></SidebarBottom>
         </SidebarBody>
       </Sidebar>
       <Stage>

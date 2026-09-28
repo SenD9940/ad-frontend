@@ -1,3 +1,4 @@
+import { readSupportSession } from '../../support/session'
 import { useRef, useState, type FormEvent } from 'react'
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import styled from 'styled-components'
@@ -18,6 +19,7 @@ const presets: { value: PerformancePreset; label: string }[] = [
 ]
 
 export default function MetaPerformancePage() {
+  const readOnlySupport = readSupportSession()?.accessMode === 'READ_ONLY'
   const { workspaceId } = useParams()
   const location = useLocation()
   const navigate = useNavigate()
@@ -129,8 +131,8 @@ export default function MetaPerformancePage() {
                 <ModeButton type="button" aria-pressed={mode === 'total'} onClick={() => setMode('total')}>기간 합계</ModeButton>
                 <ModeButton type="button" aria-pressed={mode === 'daily'} onClick={() => setMode('daily')}>일평균</ModeButton>
               </ModeSwitch>
-              <DetailActionLink to={`/workspaces/${workspaceId}/meta/ads/new${selectedAccount ? `?assetId=${selectedAccount.assetId}` : ''}`}>광고 등록</DetailActionLink>
-              <ManageLink to={metaAdEditPath(workspaceId!, { assetId: selectedAccount?.assetId })}>광고 수정</ManageLink>
+              {!readOnlySupport && <><DetailActionLink to={`/workspaces/${workspaceId}/meta/ads/new${selectedAccount ? `?assetId=${selectedAccount.assetId}` : ''}`}>광고 등록</DetailActionLink>
+              <ManageLink to={metaAdEditPath(workspaceId!, { assetId: selectedAccount?.assetId })}>광고 수정</ManageLink></>}
             </Actions>
           </ResultsHeader>
 
@@ -161,7 +163,7 @@ export default function MetaPerformancePage() {
           {assetId !== null && selectedAccount ? <>
             {data.campaignsError ? <Feedback><DetailAlert role="alert">{data.campaignsError}</DetailAlert><Actions><DetailSecondaryButton onClick={data.reloadCampaigns}>캠페인 다시 조회</DetailSecondaryButton></Actions></Feedback> : null}
             {data.campaignsLoading || data.performanceLoading ? <DetailPanel><DetailStatus role="status">캠페인 목록과 성과를 확인하는 중…</DetailStatus></DetailPanel> : !data.campaignsError || data.accountPerformance ? <>
-              <CampaignPerformanceTable campaigns={data.campaigns} performance={data.accountPerformance?.campaigns ?? null} currency={data.accountPerformance?.account.currency ?? null} mode={mode} listUnavailable={Boolean(data.campaignsError)} onEdit={(campaignId) => navigate(metaAdEditPath(workspaceId!, { assetId: selectedAccount.assetId, type: 'campaign', objectId: campaignId }))} />
+              <CampaignPerformanceTable campaigns={data.campaigns} performance={data.accountPerformance?.campaigns ?? null} currency={data.accountPerformance?.account.currency ?? null} mode={mode} listUnavailable={Boolean(data.campaignsError)} onEdit={readOnlySupport ? undefined : (campaignId) => navigate(metaAdEditPath(workspaceId!, { assetId: selectedAccount.assetId, type: 'campaign', objectId: campaignId }))} />
               <DetailHint>계정 성과와 캠페인 성과는 각각 조회되므로 캠페인 행의 합계가 계정 성과와 다를 수 있습니다. 캠페인 상태는 현재 상태이며, 성과는 선택한 기간 기준입니다.</DetailHint>
             </> : null}
           </> : null}
@@ -179,7 +181,7 @@ const AccountField = styled(Field)`flex: 1 1 18rem; max-width: 100%;`
 const DateFields = styled.div`display: flex; align-items: end; gap: .625rem; min-width: 0; > label { flex: 1; } @media(max-width: 600px) { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); width: 100%; > button { grid-column: 1 / -1; } } @media(max-width: 380px) { grid-template-columns: minmax(0, 1fr); }`
 const FilterFooter = styled.div`display: flex; align-items: center; justify-content: space-between; gap: .75rem; flex-wrap: wrap;`
 const Actions = styled.div`display: flex; align-items: center; flex-wrap: wrap; gap: .5rem; min-width: 0;`
-const PresetButton = styled(DetailSecondaryButton)<{ $active: boolean }>`min-height: 2rem; padding: .3rem .6rem; font-size: .75rem; ${({ $active }) => $active && 'border-color: #d8d4ff; color: #635bff; background: #f5f3ff;'};`
+const PresetButton = styled(DetailSecondaryButton)<{ $active: boolean }>`min-height: 2rem; padding: .3rem .6rem; font-size: .75rem; ${({ $active }) => $active && 'border-color: #d8d4ff; color: #635bff; background: #f5f3ff;'}`
 const Feedback = styled.div`display: grid; gap: .75rem;`
 const ResultsHeader = styled.div`display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; h2 { font-size: 1.0625rem; letter-spacing: -.02em; overflow-wrap: anywhere; }`
 const ModeSwitch = styled.div`display: inline-flex; gap: .25rem; padding: .25rem; border: 1px solid ${({ theme }) => theme.colors.border}; border-radius: .625rem; background: #eeeff4;`

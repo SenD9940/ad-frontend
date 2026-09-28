@@ -1,3 +1,4 @@
+import { readSupportSession } from '../support/session'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ApiError } from '../api/http'
@@ -154,13 +155,13 @@ export function useNaverConnections() {
     pendingRequests.current.add(controller)
     setLoading(true)
     setError('')
-    void reloadSelfTestAvailability()
+    if (!readSupportSession()) void reloadSelfTestAvailability()
     try {
       const [me, workspace, items] = await Promise.all([
-        getMe(), getMyWorkspace(workspaceId), listNaverConnections(workspaceId, controller.signal),
+        readSupportSession() ? Promise.resolve(null) : getMe(), getMyWorkspace(workspaceId), listNaverConnections(workspaceId, controller.signal),
       ])
       if (!active.current || controller.signal.aborted || cycle !== lifecycle.current || version !== mutationVersion.current) return
-      setIsOwner(workspace.userId === me.id)
+      setIsOwner(Boolean(me && workspace.userId === me.id))
       applyConnections(items)
       for (const item of items) if (!item.requiresReauth) void requestChannels(item.id)
     } catch (caught) {

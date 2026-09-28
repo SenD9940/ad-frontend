@@ -6,7 +6,13 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 3400,
+    strictPort: true,
     proxy: {
+      '/admin-api': {
+        target: 'http://localhost:8481',
+        changeOrigin: true,
+        configure(proxy) { proxy.on('proxyReq', proxyReq => proxyReq.removeHeader('origin')) },
+      },
       '/open-api': {
         target: 'http://localhost:8480',
         changeOrigin: true,

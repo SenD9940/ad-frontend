@@ -1,3 +1,4 @@
+import { readSupportSession } from '../support/session'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ApiError } from '../api/http'
@@ -8,7 +9,7 @@ import { launchNaverWindow, naverAuthorizationPath, openNaverWindow } from '../p
 export function useNaverAuthorizationEntry(workspaceId: number, isOwner: boolean) {
   const navigate = useNavigate()
   const [capabilities, setCapabilities] = useState<NaverCapabilities | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(() => !readSupportSession())
   const [error, setError] = useState('')
   const [startError, setStartError] = useState('')
   const [starting, setStarting] = useState(false)
@@ -16,6 +17,7 @@ export function useNaverAuthorizationEntry(workspaceId: number, isOwner: boolean
   const active = useRef(false)
   const startingRef = useRef(false)
   useEffect(() => {
+    if (readSupportSession()) return
     active.current = true
     const controller = new AbortController()
     void getNaverCapabilities(workspaceId, controller.signal).then((value) => {

@@ -1,0 +1,13 @@
+export type Page<T> = { items: T[]; page: number; size: number; totalElements: number; totalPages: number }
+export type AdminUser = { id: number; email: string; name: string | null; role: 'ADMIN' | 'CUSTOMER'; status: 'REGISTERED' | 'SUSPENDED' | 'UNREGISTERED'; lastLoginAt?: string; registeredAt?: string; ownedWorkspaceCount?: number; workspaceCount?: number }
+export type Workspace = { id: number; name: string; ownerId: number; ownerEmail: string; ownerStatus?: string; memberCount?: number; connectionCount?: number; registeredAt?: string; role?: string }
+export type Member = { userId: number; email: string; name: string; status: string; owner: boolean; registeredAt: string }
+export type Invitation = { userId: number; email: string; expiresAt: string; expired: boolean }
+export type Connection = { id: number; workspaceId: number; workspaceName: string; provider: string; externalAccountId: string; accountName: string; requiresReauth: boolean; assetCount: number; expiresAt: string | null; registeredAt: string }
+export type Audit = { id: number; actorUserId: number; action: string; targetType: string; targetId: number; reason: string; beforeValue: string | null; afterValue: string | null; createdAt: string }
+export type Overview = { users: number; registeredUsers: number; suspendedUsers: number; unregisteredUsers: number; activeAdministrators: number; newUsersLast7Days: number; workspaces: number; connections: number; connectionsRequiringReauth: number; assets: number; pendingInvitations: number; fetchedAt: string }
+export type SupportMode = 'READ_ONLY' | 'OPERATE'
+export type SupportTicket = { id: number; workspaceId: number; customerUserId: number; assignedAdminId: number | null; requestSource?: 'ADMIN' | 'CUSTOMER'; title: string; description: string; accessMode: SupportMode; amountKrw: number; paymentStatus: 'UNPAID' | 'PAID' | 'WAIVED'; paymentReference?: string | null; status: 'REQUESTED' | 'APPROVED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED'; approvedAt?: string | null; approvalExpiresAt?: string | null; termsVersion?: string | null; termsSnapshot?: string | null; createdAt: string; updatedAt: string }
+export type SupportGrant = { sessionId: number; ticketId: number; workspaceId: number; customerUserId: number; accessMode: SupportMode; accessToken: string; expiresAt: string }
+export type SupportSession = Omit<SupportGrant, 'accessToken' | 'sessionId'> & { id: number; adminUserId: number; startedAt: string; endedAt?: string | null; active: boolean }
+export type SupportAction = { id: number; sessionId: number; ticketId: number; actorUserId: number; customerUserId: number; workspaceId: number; httpMethod: string; path: string; statusCode: number | null; startedAt: string; completedAt: string | null }

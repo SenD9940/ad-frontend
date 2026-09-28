@@ -1,3 +1,4 @@
+import { readSupportSession } from '../../support/session'
 import { useEffect, useRef } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import styled from 'styled-components'
@@ -17,6 +18,7 @@ const ASSET_GROUPS: { title: string; assetType: AssetType }[] = [
 ]
 
 export default function WorkspaceConnectionsPage() {
+  const readOnlySupport = readSupportSession()?.accessMode === 'READ_ONLY'
   const location = useLocation()
   const navigate = useNavigate()
   const active = useRef(true)
@@ -151,10 +153,10 @@ export default function WorkspaceConnectionsPage() {
                         <AssetSelection>
                           <SelectionHeading><h3>사용할 자산 선택</h3><span role="status">전체 {available.length}개 중 {selectedCount}개 선택 · 최대 {META_ASSET_SELECT_MAX}개</span></SelectionHeading>
                           <BulkActions role="group" aria-label={`${connection.accountName || 'Meta 계정'} 자산 일괄 선택`}>
-                            <DetailSecondaryButton type="button" onClick={() => selectAllAssets(connection.id)} disabled={savingId !== null || selectedCount === available.length}>
+                            <DetailSecondaryButton type="button" onClick={() => selectAllAssets(connection.id)} disabled={readOnlySupport || savingId !== null || selectedCount === available.length}>
                               전체 선택
                             </DetailSecondaryButton>
-                            <DetailSecondaryButton type="button" onClick={() => clearAssetSelection(connection.id)} disabled={savingId !== null || chosen.size === 0}>
+                            <DetailSecondaryButton type="button" onClick={() => clearAssetSelection(connection.id)} disabled={readOnlySupport || savingId !== null || chosen.size === 0}>
                               전체 해제
                             </DetailSecondaryButton>
                           </BulkActions>
@@ -170,7 +172,7 @@ export default function WorkspaceConnectionsPage() {
                                   const checkboxId = `asset-${connection.id}-${key}`
                                   return (
                                     <AssetRow key={key} htmlFor={checkboxId} $selected={chosen.has(key)}>
-                                      <input id={checkboxId} type="checkbox" checked={chosen.has(key)} onChange={() => toggleAsset(connection.id, key)} disabled={savingId !== null} />
+                                      <input id={checkboxId} type="checkbox" checked={chosen.has(key)} onChange={() => toggleAsset(connection.id, key)} disabled={readOnlySupport || savingId !== null} />
                                       <AssetText><span>{formatDiscoveredLabel(asset)}</span><small>ID {asset.externalId}</small></AssetText>
                                     </AssetRow>
                                   )
@@ -180,7 +182,7 @@ export default function WorkspaceConnectionsPage() {
                           })}
                           <SaveRow>
                             <DetailHint>{changed ? '변경한 선택을 저장해 주세요.' : '저장된 자산이 선택되어 있습니다.'}</DetailHint>
-                            <DetailPrimaryButton type="button" onClick={() => void handleSaveAssets(connection.id)} disabled={savingId !== null || selectedCount === 0 || !changed}>
+                            <DetailPrimaryButton type="button" onClick={() => void handleSaveAssets(connection.id)} disabled={readOnlySupport || savingId !== null || selectedCount === 0 || !changed}>
                               {savingId === connection.id ? '저장 중…' : canShowPerformance ? '저장하고 성과 보기' : '선택한 자산 저장'}
                             </DetailPrimaryButton>
                           </SaveRow>

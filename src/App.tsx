@@ -18,6 +18,10 @@ import PlatformComingSoonPage from './pages/workspace/PlatformComingSoonPage'
 import WorkspaceConnectionsPage from './pages/workspace/WorkspaceConnectionsPage'
 import WorkspaceListPage from './pages/workspace/WorkspaceListPage'
 
+const AdminApp = lazy(() => import('./admin/AdminApp'))
+const CustomerSupportPage = lazy(() => import('./support/CustomerSupportPage'))
+const SupportPaymentResultPage = lazy(() => import('./support/SupportPaymentResultPage'))
+
 const NaverOAuthCallbackPage = lazy(() => import('./pages/workspace/NaverOAuthCallbackPage'))
 const NaverConnectionsPage = lazy(() => import('./pages/workspace/NaverConnectionsPage'))
 const NaverHomePage = lazy(() => import('./pages/workspace/NaverHomePage'))
@@ -34,6 +38,7 @@ export default function App() {
       <BrowserRouter>
         <RouteEffects />
         <Routes>
+          <Route path="/admin/*" element={<Suspense fallback={<p role="status">운영 콘솔을 불러오는 중…</p>}><AdminApp /></Suspense>} />
           <Route path="/" element={<MainLayout />}>
             <Route index element={<LandingPage />} />
             <Route path="login" element={<LoginPage />} />
@@ -54,6 +59,8 @@ export default function App() {
             </Route>
             <Route path="workspaces/:workspaceId" element={<WorkspaceAppLayout />}>
               <Route index element={<Navigate to="connections/meta" replace />} />
+              <Route path="support" element={<Suspense fallback={<p role="status">기술 지원 요청을 불러오는 중…</p>}><CustomerSupportPage /></Suspense>} />
+              <Route path="support/:ticketId/payment/:outcome" element={<Suspense fallback={<p role="status">결제 결과를 확인하는 중…</p>}><SupportPaymentResultPage /></Suspense>} />
               <Route path="members" element={<InviteWorkspacePage />} />
               <Route path="invite" element={<InviteWorkspacePage />} />
               <Route path="connections" element={<Navigate to="meta" replace />} />

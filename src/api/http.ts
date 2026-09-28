@@ -1,3 +1,4 @@
+import { readSupportSession, supportExpired } from '../support/session'
 import axios, { isAxiosError } from 'axios'
 import type { InternalAxiosRequestConfig } from 'axios'
 import { keysToCamelCase, keysToSnakeCase } from './case'
@@ -7,6 +8,7 @@ import type { TokenResponse } from '../types/token'
 
 type RetriableRequestConfig = InternalAxiosRequestConfig & {
   _retry?: boolean
+  _supportRequest?: boolean
 }
 
 export class ApiError extends Error {
@@ -34,9 +36,17 @@ const http = axios.create({
 let refreshRequest: Promise<string> | undefined
 
 http.interceptors.request.use((config) => {
-  const accessToken = readAccessToken()
-  if (accessToken && !isRefreshRequest(config.url)) {
-    config.headers.Authorization = `Bearer ${accessToken}`
+  const support = readSupportSession()
+  if (support) {
+    if (supportExpired(support)) throw new ApiError('지원 접속이 만료되었습니다. 어드민으로 돌아가 다시 접속해 주세요.', undefined, 401)
+    if (!config.url?.startsWith('/api/') || config.url.startsWith('//')) throw new ApiError('지원 모드에서 사용할 수 없는 요청입니다.', undefined, 403)
+    if (support.accessMode === 'READ_ONLY' && !['get', 'head'].includes(config.method || 'get') && config.url !== '/api/support/session/end') throw new ApiError('조회 전용 지원입니다. 변경 권한이 필요하면 새 지원 요청으로 고객 승인을 받아 주세요.', undefined, 403)
+    config.headers.delete('Authorization')
+    config.headers['X-Support-Token'] = support.accessToken
+    ;(config as RetriableRequestConfig)._supportRequest = true
+  } else {
+    const accessToken = readAccessToken()
+    if (accessToken && !isRefreshRequest(config.url)) config.headers.Authorization = `Bearer ${accessToken}`
   }
   if (config.data && shouldTransform(config.data)) {
     config.data = keysToSnakeCase(config.data)
@@ -57,6 +67,7 @@ http.interceptors.response.use(
     const config = error.config as RetriableRequestConfig
     if (
       error.response?.status === 401 &&
+      !config._supportRequest &&
       !config._retry &&
       !shouldSkipRefresh(config.url)
     ) {
@@ -132,6 +143,7 @@ function shouldTransform(data: unknown): boolean {
 }
 
 function toApiError(error: unknown): ApiError {
+  if (error instanceof ApiError) return error
   if (!isAxiosError(error)) {
     return new ApiError('요청 처리 중 오류가 발생했습니다.')
   }
