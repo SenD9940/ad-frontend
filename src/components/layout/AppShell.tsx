@@ -5,12 +5,24 @@ import styled from 'styled-components'
 import { useAuth } from '../../auth/AuthContext'
 import Icon from '../common/Icon'
 
-const platforms = [
-  { key: 'meta', name: 'Meta', mark: '∞', color: '#1877f2', soon: false },
-  { key: 'naver', name: '네이버', mark: 'N', color: '#03a95b', soon: false },
-  { key: 'threads', name: 'Threads', mark: '@', color: '#202331', soon: true },
-  { key: 'coupang', name: '쿠팡', mark: 'C', color: '#ee5b43', soon: true },
+const platformGroups = [
+  {
+    label: 'Advertising Platforms',
+    platforms: [
+      { key: 'meta', name: 'Meta', mark: '∞', color: '#1877f2', soon: false },
+      { key: 'threads', name: 'Threads', mark: '@', color: '#202331', soon: true },
+    ],
+  },
+  {
+    label: 'Sales Platforms',
+    platforms: [
+      { key: 'naver', name: '네이버', mark: 'N', color: '#03a95b', soon: false },
+      { key: 'imweb', name: '아임웹', mark: 'I', color: '#2563eb', soon: false },
+      { key: 'coupang', name: '쿠팡', mark: 'C', color: '#ee5b43', soon: true },
+    ],
+  },
 ]
+const platforms = platformGroups.flatMap(group => group.platforms)
 
 export default function AppShell({ children, workspaceId, workspaceName }: { children: ReactNode; workspaceId?: string; workspaceName?: string }) {
   const support = readSupportSession()
@@ -21,7 +33,8 @@ export default function AppShell({ children, workspaceId, workspaceName }: { chi
   const activePlatform = platforms.find((p) => pathname.endsWith(`/connections/${p.key}`))
   const metaActive = Boolean(workspaceId && (pathname.startsWith(`/workspaces/${workspaceId}/connections/meta`) || pathname.startsWith(`/workspaces/${workspaceId}/meta/`)))
   const naverActive = Boolean(workspaceId && (pathname.startsWith(`/workspaces/${workspaceId}/connections/naver`) || pathname.startsWith(`/workspaces/${workspaceId}/naver/`)))
-  const pageName = pathname.includes('/studio') ? 'AI 스튜디오' : pathname.endsWith('/support') ? '기술 지원' : pathname.endsWith('/naver/products/new') ? '스마트스토어 상품 등록' : pathname.endsWith('/meta/ads/new') ? 'Meta 광고 등록' : pathname.endsWith('/meta/ads/edit') ? 'Meta 광고 수정' : pathname.endsWith('/connections/meta/assets') ? 'Meta 자산 편집' : pathname.endsWith('/meta/performance') ? 'Meta 광고 성과' : pathname.endsWith('/connections/naver/assets') ? '네이버 자산 편집' : pathname.endsWith('/naver/performance') ? '상품 및 판매 성과' : activePlatform ? `${activePlatform.name} 연결` : /\/(members|invite)$/.test(pathname) && workspaceId ? '멤버 관리' : pathname.endsWith('/new') ? '워크스페이스 만들기' : pathname === '/invite' ? '초대 수락' : pathname.includes('/callback') ? '플랫폼 연결' : '워크스페이스'
+  const imwebActive = Boolean(workspaceId && (pathname.startsWith(`/workspaces/${workspaceId}/connections/imweb`) || pathname.startsWith(`/workspaces/${workspaceId}/imweb/`)))
+  const pageName = pathname.endsWith('/imweb/products/new') ? '아임웹 상품 등록' : pathname.endsWith('/imweb/performance') ? '아임웹 상품 및 판매 성과' : pathname.endsWith('/connections/imweb/assets') ? '아임웹 자산 편집' : pathname.includes('/studio') ? 'AI 스튜디오' : pathname.endsWith('/support') ? '기술 지원' : pathname.endsWith('/naver/orders') ? '스마트스토어 주문·배송·환불' : pathname.endsWith('/naver/products/new') ? '스마트스토어 상품 등록' : pathname.endsWith('/meta/ads/new') ? 'Meta 광고 등록' : pathname.endsWith('/meta/ads/edit') ? 'Meta 광고 수정' : pathname.endsWith('/connections/meta/assets') ? 'Meta 자산 편집' : pathname.endsWith('/meta/performance') ? 'Meta 광고 성과' : pathname.endsWith('/connections/naver/assets') ? '네이버 자산 편집' : pathname.endsWith('/naver/performance') ? '상품 및 판매 성과' : activePlatform ? `${activePlatform.name} 연결` : /\/(members|invite)$/.test(pathname) && workspaceId ? '멤버 관리' : pathname.endsWith('/new') ? '워크스페이스 만들기' : pathname === '/invite' ? '초대 수락' : pathname.includes('/callback') ? '플랫폼 연결' : '워크스페이스'
 
   return (
     <Shell>
@@ -40,10 +53,17 @@ export default function AppShell({ children, workspaceId, workspaceName }: { chi
             {workspaceId && <NavItem to={`/workspaces/${workspaceId}/studio`}><Icon name="grid" size={18} />AI 스튜디오</NavItem>}
             {workspaceId && <NavItem to={`/workspaces/${workspaceId}/support`}><Icon name="help" size={18} />기술 지원</NavItem>}
           </Nav>}
-          {workspaceId ? <Nav aria-label="광고 플랫폼"><NavLabel>PLATFORMS</NavLabel>{platforms.filter(p => !support || !p.soon).map((p) => {
-            const active = p.key === 'meta' ? metaActive : p.key === 'naver' ? naverActive : activePlatform?.key === p.key
-            return <NavItem as={Link} key={p.key} to={`/workspaces/${workspaceId}/connections/${p.key}`} className={active ? 'active' : undefined} aria-current={active ? 'page' : undefined}><PlatformMark $color={p.color}>{p.mark}</PlatformMark>{p.name}{p.soon && <Soon>준비 중</Soon>}</NavItem>
-          })}</Nav> : <Guide><GuideIcon><Icon name="link" /></GuideIcon><strong>연결에서 시작되는 협업</strong><p>워크스페이스에서 광고 플랫폼을 연결하고 팀과 함께 관리하세요.</p><GuideLink to="/workspaces/new">새 공간 만들기 <Icon name="arrow" size={15} /></GuideLink></Guide>}
+          {workspaceId ? platformGroups.map(group => {
+            const visiblePlatforms = group.platforms.filter(p => !support || (!p.soon && p.key !== 'imweb'))
+            if (!visiblePlatforms.length) return null
+            return <Nav key={group.label} aria-label={group.label}>
+              <NavLabel>{group.label}</NavLabel>
+              {visiblePlatforms.map(p => {
+                const active = p.key === 'meta' ? metaActive : p.key === 'naver' ? naverActive : p.key === 'imweb' ? imwebActive : activePlatform?.key === p.key
+                return <NavItem as={Link} key={p.key} to={`/workspaces/${workspaceId}/connections/${p.key}`} className={active ? 'active' : undefined} aria-current={active ? 'page' : undefined}><PlatformMark $color={p.color}>{p.mark}</PlatformMark>{p.name}{p.soon && <Soon>준비 중</Soon>}</NavItem>
+              })}
+            </Nav>
+          }) : <Guide><GuideIcon><Icon name="link" /></GuideIcon><strong>연결에서 시작되는 협업</strong><p>워크스페이스에서 광고·판매 플랫폼을 연결하고 팀과 함께 관리하세요.</p><GuideLink to="/workspaces/new">새 공간 만들기 <Icon name="arrow" size={15} /></GuideLink></Guide>}
           <SidebarBottom><HelpLink href="mailto:dnqlsdnqls529@orinan.kr"><Icon name="help" size={18} />도움이 필요하신가요?<Icon name="arrow" size={15} /></HelpLink><Account><AccountAvatar>U</AccountAvatar><div><strong>{support ? '고객 기술 지원 모드' : 'United Ad 계정'}</strong><small>{support ? '상단에서 지원을 종료할 수 있습니다' : '팀을 위한 연결된 공간'}</small></div>{!support && <Logout type="button" onClick={clearSession} aria-label="로그아웃" title="로그아웃"><Icon name="logout" size={18} /></Logout>}</Account></SidebarBottom>
         </SidebarBody>
       </Sidebar>

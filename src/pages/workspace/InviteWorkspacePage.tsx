@@ -1,6 +1,7 @@
 import styled from 'styled-components'
 import { useInviteWorkspaceMembers } from '../../hooks/useInviteWorkspaceMembers'
 import { useKickWorkspaceMember } from '../../hooks/useKickWorkspaceMember'
+import Modal from '../../components/common/Modal'
 import { INVITE_EMAIL_MAX_LENGTH, INVITE_EMAILS_MAX } from './workspaceValidation'
 import {
   DetailActionLink, DetailAlert, DetailBadge, DetailEmpty, DetailEyebrow,
@@ -98,18 +99,17 @@ export default function InviteWorkspacePage() {
 
         <DetailPanel aria-labelledby={`${kick.sectionId}-title`}>
           <PanelHeading>
-            <div><h2 id={`${kick.sectionId}-title`}>워크스페이스 멤버</h2><p>이 워크스페이스에서 함께 작업하는 팀원입니다.</p></div>
+            <div><h2 id={`${kick.sectionId}-title`} tabIndex={-1}>워크스페이스 멤버</h2><p>이 워크스페이스에서 함께 작업하는 팀원입니다.</p></div>
             {!kick.loading && !kick.error ? <DetailBadge>{kick.members.length}명</DetailBadge> : null}
           </PanelHeading>
           {kick.loading ? <DetailStatus role="status">멤버 목록을 불러오는 중…</DetailStatus> : kick.error ? <DetailPanelBody><DetailAlert role="alert">{kick.error}</DetailAlert></DetailPanelBody> : (
             <>
-              {kick.kickError || kick.successMessage ? <Feedback>{kick.kickError ? <DetailAlert role="alert">{kick.kickError}</DetailAlert> : null}{kick.successMessage ? <DetailAlert $success role="status">{kick.successMessage}</DetailAlert> : null}</Feedback> : null}
+              {(kick.kickError && kick.confirmingUserId === null) || kick.successMessage ? <Feedback>{kick.kickError ? <DetailAlert role="alert">{kick.kickError}</DetailAlert> : null}{kick.successMessage ? <DetailAlert $success role="status">{kick.successMessage}</DetailAlert> : null}</Feedback> : null}
               {kick.members.length === 0 ? <DetailEmpty><DetailIconTile><DetailIcon name="users" /></DetailIconTile><h3>아직 참여한 멤버가 없어요</h3><p>새 멤버를 이메일로 초대하고 함께 워크스페이스를 관리하세요.</p></DetailEmpty> : (
                 <MemberList aria-labelledby={`${kick.sectionId}-title`}>
                   {kick.members.map((member) => {
                     const isWorkspaceOwner = member.userId === workspace?.userId
                     const confirming = kick.confirmingUserId === member.userId
-                    const kicking = kick.kickingUserId === member.userId
                     return (
                       <MemberItem key={member.userId} $confirming={confirming}>
                         <MemberRow>
@@ -119,15 +119,9 @@ export default function InviteWorkspacePage() {
                           </MemberIdentity>
                           <MemberActions>
                             <DetailBadge $tone={isWorkspaceOwner ? 'primary' : undefined}>{isWorkspaceOwner ? '소유자' : '멤버'}</DetailBadge>
-                            {kick.isOwner && !isWorkspaceOwner && !confirming ? <RemoveMemberButton type="button" onClick={() => kick.requestKick(member.userId)} disabled={kick.kickingUserId !== null} aria-label={`사용자 ${member.userId} 내보내기`}>내보내기</RemoveMemberButton> : null}
+                            {kick.isOwner && !isWorkspaceOwner ? <RemoveMemberButton type="button" onClick={() => kick.requestKick(member.userId)} disabled={kick.kickingUserId !== null} aria-label={`사용자 ${member.userId} 내보내기`}>내보내기</RemoveMemberButton> : null}
                           </MemberActions>
                         </MemberRow>
-                        {confirming ? (
-                          <Confirmation role="group" aria-label={`사용자 ${member.userId} 내보내기 확인`}>
-                            <p>사용자 {member.userId}를 내보낼까요? 이 워크스페이스에 더 이상 접근할 수 없습니다.</p>
-                            <ButtonRow><DetailSecondaryButton type="button" onClick={kick.cancelKick} disabled={kicking}>취소</DetailSecondaryButton><KickSubmit type="button" onClick={() => void kick.confirmKick(member.userId)} disabled={kicking}>{kicking ? '내보내는 중…' : '내보내기 확인'}</KickSubmit></ButtonRow>
-                          </Confirmation>
-                        ) : null}
                       </MemberItem>
                     )
                   })}
@@ -138,6 +132,9 @@ export default function InviteWorkspacePage() {
           )}
         </DetailPanel>
       </ContentGrid>
+      <Modal open={kick.confirmingUserId !== null} title="멤버를 내보내시겠어요?" variant="confirm" busy={kick.kickingUserId !== null} onClose={kick.cancelKick} description={`사용자 ${kick.confirmingUserId}는 이 워크스페이스에 더 이상 접근할 수 없습니다.`} footer={<ButtonRow><DetailSecondaryButton type="button" onClick={kick.cancelKick} disabled={kick.kickingUserId !== null}>취소</DetailSecondaryButton><KickSubmit type="button" onClick={() => { if (kick.confirmingUserId !== null) void kick.confirmKick(kick.confirmingUserId) }} disabled={kick.kickingUserId !== null}>{kick.kickingUserId !== null ? '내보내는 중…' : '내보내기'}</KickSubmit></ButtonRow>}>
+        {kick.kickError && <DetailAlert role="alert">{kick.kickError}</DetailAlert>}
+      </Modal>
     </DetailPage>
   )
 }
@@ -179,7 +176,6 @@ const MemberName = styled.p`font-size: 0.8125rem; font-weight: 650; overflow-wra
 const MemberMeta = styled.p`margin-top: 0.25rem; color: ${({ theme }) => theme.colors.textMuted}; font-size: 0.6875rem;`
 const MemberActions = styled.div`display: flex; align-items: center; flex-wrap: wrap; gap: 0.5rem;`
 const RemoveMemberButton = styled.button`min-height: 2rem; padding: 0.3rem 0.5rem; border: 0; background: transparent; color: ${({ theme }) => theme.colors.textMuted}; font-size: 0.6875rem; &:hover:not(:disabled), &:active:not(:disabled) { background: #fff0f0; color: ${({ theme }) => theme.colors.error}; }`
-const Confirmation = styled.div`margin-top: 0.875rem; padding: 0.875rem; border: 1px solid #f3d8d8; border-radius: 0.5rem; background: #fff8f8; p { font-size: 0.75rem; line-height: 1.7; color: #a33c3c; word-break: keep-all; }`
 const ButtonRow = styled.div`display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.75rem;`
 const KickSubmit = styled(DetailPrimaryButton)`background: ${({ theme }) => theme.colors.error}; box-shadow: none; &:hover:not(:disabled) { background: #a32929; } &:active:not(:disabled) { background: #8a2323; }`
 const MemberFooter = styled.div`display: flex; align-items: flex-start; gap: 0.5rem; padding: 1rem 1.5rem; border-top: 1px solid ${({ theme }) => theme.colors.border}; color: ${({ theme }) => theme.colors.textMuted}; svg { flex-shrink: 0; margin-top: 0.15rem; } p { font-size: 0.7rem; line-height: 1.8; word-break: keep-all; } @media (max-width: 600px) { padding-inline: 1.125rem; }`

@@ -1,3 +1,4 @@
+import { useModal } from '../components/common/useModal'
 import { useEffect, useRef, useState } from 'react'
 import http from '../api/http'
 import { paymentMessage, supportPath, type PaymentOrder } from './api'
@@ -28,6 +29,7 @@ function loadToss(): Promise<TossFactory> {
 }
 
 export function useTossSupportPayment(workspaceId: string, reload: () => void) {
+  const feedback = useModal()
   const [pendingTicketId, setPendingTicketId] = useState<number | null>(null)
   const [message, setMessage] = useState('')
   const busy = useRef(false)
@@ -47,10 +49,13 @@ export function useTossSupportPayment(workspaceId: string, reload: () => void) {
     if (busy.current) return
     busy.current = true; setPendingTicketId(ticketId); setMessage('')
     let finished = false
-    const finish = (text = '') => {
+    const finish = (text = '', failed = false) => {
       if (finished) return
       finished = true; dismiss(); busy.current = false
-      if (alive.current) { setPendingTicketId(null); setMessage(text); reload() }
+      if (alive.current) {
+        setPendingTicketId(null); setMessage(text); reload()
+        if (text) void feedback[failed ? 'error' : 'info']({ title: failed ? '결제 상태 확인 필요' : '결제 안내', message: text })
+      }
     }
     try {
       const { data } = await http.post<{ body: PaymentOrder }>(`${supportPath(workspaceId, ticketId)}/payment-order`)
@@ -74,9 +79,9 @@ export function useTossSupportPayment(workspaceId: string, reload: () => void) {
         const base = `${window.location.origin}/workspaces/${workspaceId}/support/${ticketId}/payment`
         void widgets.requestPayment({ orderId: order.orderId, orderName: order.orderName,
           successUrl: `${base}/success`, failUrl: `${base}/fail?orderId=${encodeURIComponent(order.orderId)}`,
-        }).catch(() => finish('결제를 진행하지 못했습니다. 요청 목록에서 결제 상태를 확인해 주세요.'))
+        }).catch(() => finish('결제를 진행하지 못했습니다. 요청 목록에서 결제 상태를 확인해 주세요.', true))
       })
-    } catch (caught) { finish(caught instanceof Error ? caught.message : '결제를 시작하지 못했습니다.') }
+    } catch (caught) { finish(caught instanceof Error ? caught.message : '결제를 시작하지 못했습니다.', true) }
   }
 
   return { start, pendingTicketId, message }

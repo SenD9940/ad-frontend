@@ -1,4 +1,4 @@
-export type ProviderType = 'META' | 'THREADS' | 'GOOGLE' | 'NAVER' | 'COUPANG'
+export type ProviderType = 'META' | 'THREADS' | 'GOOGLE' | 'NAVER' | 'IMWEB' | 'COUPANG'
 
 export type PlatformType =
   | 'FACEBOOK'
@@ -7,6 +7,7 @@ export type PlatformType =
   | 'GOOGLE_ADS'
   | 'NAVER_ADS'
   | 'NAVER_SMART_STORE'
+  | 'IMWEB'
   | 'COUPANG'
 
 export type AssetType = 'AD_ACCOUNT' | 'PAGE' | 'PROFILE' | 'STORE'

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { ApiError } from '../api/http'
+import { useErrorModal } from '../components/common/useErrorModal'
 import { getNaverProducts, getNaverSales, listSavedNaverStores } from '../api/naverStores'
 import { validateNaverPeriod, type NaverDateRange } from '../pages/workspace/naverPerformanceDates'
 
@@ -53,5 +54,6 @@ function useRead<T>(key: string | null, load: (signal: AbortSignal) => Promise<T
     return () => controller.abort()
   }, [identity, load, fallback])
   const current = result?.identity === identity && key !== null ? result : null
+  useErrorModal(current?.error, '스마트스토어 정보 조회 실패')
   return { data: current?.data ?? null, error: current?.error ?? '', loading: key !== null && !current, reload: useCallback(() => setRevision((value) => value + 1), []) }
 }

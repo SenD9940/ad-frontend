@@ -1,9 +1,11 @@
-import { useEffect, useId, useState, type ChangeEvent, type FormEvent } from 'react'
+import { useEffect, useId, useRef, useState, type ChangeEvent, type FormEvent } from 'react'
 import { useParams } from 'react-router-dom'
 import { ApiError } from '../api/http'
 import { existsUserByEmail } from '../api/users'
 import { getMyWorkspace } from '../api/workspaces'
 import { inviteWorkspaceMembers } from '../api/workspaceMembers'
+import { useModal } from '../components/common/useModal'
+import { useErrorModal } from '../components/common/useErrorModal'
 import {
   INVITE_EMAILS_MAX,
   inviteEmailInputError,
@@ -12,6 +14,9 @@ import {
 import type { WorkspaceMemberInviteResponse, WorkspaceResponse } from '../types/workspace'
 
 export function useInviteWorkspaceMembers() {
+  const modal = useModal()
+  const active = useRef(true), pending = useRef(false)
+  useEffect(() => { active.current = true; return () => { active.current = false } }, [])
   const formId = useId()
   const { workspaceId: workspaceIdParam } = useParams()
   const workspaceId = Number(workspaceIdParam)
@@ -26,6 +31,7 @@ export function useInviteWorkspaceMembers() {
   const [adding, setAdding] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [results, setResults] = useState<WorkspaceMemberInviteResponse[]>([])
+  useErrorModal(workspaceError, '워크스페이스 조회 실패')
 
   const busy = adding || submitting
 
@@ -70,6 +76,8 @@ export function useInviteWorkspaceMembers() {
   }
 
   async function addEmail() {
+    if (pending.current) return
+    const returnFocus = document.getElementById(`${formId}-email`)
     const formatError = inviteEmailInputError(emailInput)
     if (formatError) {
       setInputError(formatError)
@@ -90,11 +98,12 @@ export function useInviteWorkspaceMembers() {
       return
     }
 
-    setAdding(true)
+    pending.current = true; setAdding(true)
     setInputError('')
     setFormError('')
     try {
       const exists = await existsUserByEmail(email)
+      if (!active.current) return
       if (!exists) {
         setInputError('가입된 사용자가 없습니다.')
         return
@@ -107,13 +116,13 @@ export function useInviteWorkspaceMembers() {
       })
       setEmailInput('')
     } catch (caught) {
-      setInputError(
-        caught instanceof ApiError
+      const message = caught instanceof ApiError
           ? caught.message
-          : '사용자를 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.',
-      )
+          : '사용자를 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.'
+      if (active.current) { setInputError(message); void modal.error({ title: '초대할 사용자 조회 실패', message, returnFocus }) }
     } finally {
-      setAdding(false)
+      pending.current = false
+      if (active.current) setAdding(false)
     }
   }
 
@@ -124,6 +133,8 @@ export function useInviteWorkspaceMembers() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    if (pending.current) return
+    const returnFocus = document.getElementById(`${formId}-email`)
     if (!isValidWorkspaceId) {
       setFormError('워크스페이스 정보가 올바르지 않습니다.')
       return
@@ -134,13 +145,14 @@ export function useInviteWorkspaceMembers() {
       return
     }
 
-    setSubmitting(true)
+    pending.current = true; setSubmitting(true)
     setFormError('')
     try {
       const inviteResults = await inviteWorkspaceMembers({
         workspaceId,
         emails,
       })
+      if (!active.current) return
       setResults(inviteResults)
       const succeeded = new Set(
         inviteResults
@@ -148,14 +160,17 @@ export function useInviteWorkspaceMembers() {
           .map((item) => item.email.trim().toLowerCase()),
       )
       setEmails((current) => current.filter((item) => !succeeded.has(item)))
+      const message = `${succeeded.size}명에게 초대 메일을 보냈습니다.${inviteResults.length > succeeded.size ? ` ${inviteResults.length - succeeded.size}명은 발송하지 못했습니다. 화면의 초대 결과를 확인해 주세요.` : ''}`
+      void (succeeded.size === inviteResults.length ? modal.success : modal.info)({ title: '멤버 초대 결과', message, returnFocus })
     } catch (caught) {
       const message =
         caught instanceof ApiError
           ? caught.message
           : '초대를 보내지 못했습니다. 잠시 후 다시 시도해 주세요.'
-      setFormError(message)
+      if (active.current) { setFormError(message); void modal.error({ title: '멤버 초대 실패', message, returnFocus }) }
     } finally {
-      setSubmitting(false)
+      pending.current = false
+      if (active.current) setSubmitting(false)
     }
   }
 

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { ApiError } from '../api/http'
 import { listJoinedWorkspaces, listMyWorkspaces } from '../api/workspaces'
+import { useErrorModal } from '../components/common/useErrorModal'
 import type { WorkspaceResponse } from '../types/workspace'
 
 export function useMyWorkspaces() {
@@ -9,6 +10,7 @@ export function useMyWorkspaces() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [attempt, setAttempt] = useState(0)
+  useErrorModal(error, '워크스페이스 조회 실패')
 
   useEffect(() => {
     let cancelled = false

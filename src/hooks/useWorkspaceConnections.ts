@@ -2,6 +2,8 @@ import { readSupportSession } from '../support/session'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { ApiError } from '../api/http'
+import { useModal } from '../components/common/useModal'
+import { useErrorModal } from '../components/common/useErrorModal'
 import { getMe } from '../api/users'
 import { getMyWorkspace } from '../api/workspaces'
 import {
@@ -27,6 +29,7 @@ export function assetKey(asset: {
 }
 
 export function useWorkspaceConnections() {
+  const modal = useModal()
   const { workspaceId: workspaceIdParam } = useParams()
   const workspaceId = Number(workspaceIdParam)
   const isValidWorkspaceId = Number.isSafeInteger(workspaceId) && workspaceId > 0
@@ -56,6 +59,8 @@ export function useWorkspaceConnections() {
 
   const discovered = discovery?.connections === metaConnections ? discovery.assets : {}
   const discoverErrors = discovery?.connections === metaConnections ? discovery.errors : {}
+  useErrorModal(error, 'Meta 연결 확인')
+  useErrorModal([...new Set(Object.values(discoverErrors).filter(Boolean))].join('\n'), 'Meta 자산 조회 실패')
 
   useEffect(() => {
     if (!isValidWorkspaceId) {
@@ -184,6 +189,7 @@ export function useWorkspaceConnections() {
       setError('워크스페이스 소유자만 Meta 계정을 연결할 수 있습니다.')
       return
     }
+    const returnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null
     setConnecting(true)
     setError('')
     try {
@@ -191,11 +197,11 @@ export function useWorkspaceConnections() {
       window.location.assign(response.authorizationUrl)
     } catch (caught) {
       setConnecting(false)
-      setError(
-        caught instanceof ApiError
+      const message = caught instanceof ApiError
           ? caught.message
-          : 'Meta 연결을 시작하지 못했습니다. 잠시 후 다시 시도해 주세요.',
-      )
+          : 'Meta 연결을 시작하지 못했습니다. 잠시 후 다시 시도해 주세요.'
+      setError(message)
+      void modal.error({ title: 'Meta 연결 실패', message, returnFocus })
     }
   }
 
@@ -220,6 +226,7 @@ export function useWorkspaceConnections() {
       return null
     }
 
+    const returnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null
     savePending.current = true
     setSavingId(connectionId)
     setSaveError('')
@@ -239,15 +246,16 @@ export function useWorkspaceConnections() {
       setSaveMessage(hasSavedAdAccount
         ? '선택한 자산을 저장했습니다.'
         : '선택한 자산을 저장했습니다. 광고 성과를 확인하려면 광고 계정을 선택하고 저장해 주세요. 페이지와 프로필만으로는 광고 성과를 조회할 수 없습니다.')
+      if (!hasSavedAdAccount) void modal.info({ title: '자산을 저장했습니다', message: '광고 성과를 보려면 광고 계정을 함께 선택하고 저장해 주세요. 페이지와 프로필만으로는 성과를 조회할 수 없습니다.', returnFocus })
       return { hasSavedAdAccount }
     } catch (caught) {
-      setSaveError(
-        saved
+      const message = saved
           ? '자산은 저장되었지만 저장된 목록을 확인하지 못했습니다. 새로고침하거나 잠시 후 다시 시도해 주세요.'
           : caught instanceof ApiError
           ? caught.message
-          : '자산을 저장하지 못했습니다. 잠시 후 다시 시도해 주세요.',
-      )
+          : '자산을 저장하지 못했습니다. 잠시 후 다시 시도해 주세요.'
+      setSaveError(message)
+      void modal.error({ title: saved ? '저장된 자산 확인 필요' : '자산 저장 실패', message, returnFocus })
       return null
     } finally {
       savePending.current = false

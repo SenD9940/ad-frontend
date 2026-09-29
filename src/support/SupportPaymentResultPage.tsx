@@ -1,3 +1,5 @@
+import { useModal } from '../components/common/useModal'
+import { useErrorModal } from '../components/common/useErrorModal'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import http from '../api/http'
@@ -25,10 +27,12 @@ export default function SupportPaymentResultPage() {
 }
 
 function PaymentResult({ workspaceId, ticketId, outcome }: { workspaceId: string; ticketId: string; outcome: string }) {
+  const modal = useModal()
   const [callback] = useState(() => new URLSearchParams(window.location.search))
   const orderId = callback.get('orderId') || ''
   const [state, setState] = useState<PaymentState>()
   const [error, setError] = useState('')
+  useErrorModal(error, '결제 결과를 확인해 주세요')
   const [pending, setPending] = useState(true)
   const refreshing = useRef(false)
   const validIds = /^[1-9]\d*$/.test(workspaceId) && /^[1-9]\d*$/.test(ticketId)
@@ -63,6 +67,11 @@ function PaymentResult({ workspaceId, ticketId, outcome }: { workspaceId: string
     void load()
     return () => { alive = false }
   }, [workspaceId, ticketId, outcome, callback, orderId, validIds])
+
+  useEffect(() => {
+    if (pending || error || !state) return
+    void modal[state.status === 'PAID' ? 'success' : 'info']({ title: state.status === 'PAID' ? '기술 지원 결제 완료' : '결제 상태 확인', message: paymentMessage(state) })
+  }, [state, pending, error, modal])
 
   return <>
     <Heading eyebrow="WORKSPACE · SUPPORT" title={state?.status === 'PAID' ? '기술 지원 결제 완료' : '기술 지원 결제 확인'} description="토스페이먼츠의 결제 결과를 확인합니다." />

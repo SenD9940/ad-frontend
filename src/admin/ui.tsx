@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useRef, useState, type ReactNode } from 'react'
+import Modal from '../components/common/Modal'
 import { number } from './format'
 import type { Page } from './types'
 
@@ -17,19 +18,17 @@ export type ActionField = { name: string; label: string; value?: string | number
 export function ActionButton({ label, title, description, fields = [], action, onDone, danger = false }: { label: string; title?: string; description: string; fields?: ActionField[]; action: (values: Record<string, string>) => Promise<unknown>; onDone: () => void; danger?: boolean }) {
   const [open, setOpen] = useState(false)
   const [done, setDone] = useState(false)
-  return <><button className={`oa-button ${danger ? 'oa-danger' : 'oa-secondary'}`} onClick={() => { setDone(false); setOpen(true) }}>{label}</button>{done && <span className="oa-success" role="status">처리했습니다.</span>}{open && <ActionDialog title={title || label} description={description} fields={fields} action={action} close={() => setOpen(false)} done={() => { setOpen(false); setDone(true); onDone() }} />}</>
+  return <><button className={`oa-button ${danger ? 'oa-danger' : 'oa-secondary'}`} onClick={() => { setDone(false); setOpen(true) }}>{label}</button>{done && <span className="oa-success" role="status">처리했습니다.</span>}{open && <ActionDialog title={title || label} description={description} fields={fields} action={action} danger={danger} close={() => setOpen(false)} done={() => { setOpen(false); setDone(true); onDone() }} />}</>
 }
-function ActionDialog({ title, description, fields, action, close, done }: { title: string; description: string; fields: ActionField[]; action: (values: Record<string, string>) => Promise<unknown>; close: () => void; done: () => void }) {
-  const dialog = useRef<HTMLDialogElement>(null)
+function ActionDialog({ title, description, fields, action, close, done, danger }: { title: string; description: string; fields: ActionField[]; action: (values: Record<string, string>) => Promise<unknown>; close: () => void; done: () => void; danger: boolean }) {
   const pendingRef = useRef(false)
   const [pending, setPending] = useState(false)
   const [error, setError] = useState('')
-  useEffect(() => { const el = dialog.current; el?.showModal(); return () => el?.close() }, [])
-  return <dialog ref={dialog} className="oa-dialog" onCancel={event => { event.preventDefault(); if (!pending) close() }} aria-labelledby="action-title"><form onSubmit={async event => {
+  return <Modal open title={title} description={description} variant="confirm" busy={pending} onClose={close}><form onSubmit={async event => {
     event.preventDefault(); if (pendingRef.current) return; const values = Object.fromEntries(new FormData(event.currentTarget).entries()) as Record<string, string>
     if (values.reason?.trim()) values.reason = values.reason.trim()
     else delete values.reason
     pendingRef.current = true; setPending(true); setError('')
     try { await action(values); done() } catch (caught) { setError(caught instanceof Error ? caught.message : '처리하지 못했습니다.') } finally { pendingRef.current = false; setPending(false) }
-  }}><h2 id="action-title">{title}</h2><p className="oa-muted">{description}</p>{fields.map(field => <Field key={field.name} label={field.label}>{field.options ? <select aria-label={field.label} name={field.name} defaultValue={field.value} required={field.required !== false}>{field.options.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select> : <input name={field.name} type={field.type || 'text'} defaultValue={field.value} required={field.required !== false} maxLength={field.maxLength ?? 200} min={field.type === 'number' ? 1 : undefined} step="1" />}</Field>)}<details className="oa-action-memo"><summary>메모 추가 (선택)</summary><Field label="메모"><textarea name="reason" maxLength={500} rows={3} placeholder="추가로 남길 내용이 있을 때만 입력하세요." /></Field></details>{error && <Notice error>{error}</Notice>}<div className="oa-dialog-actions"><button type="button" className="oa-button oa-secondary" disabled={pending} onClick={close}>취소</button><button className="oa-button" disabled={pending}>{pending ? '처리 중…' : title}</button></div></form></dialog>
+  }}>{fields.map(field => <Field key={field.name} label={field.label}>{field.options ? <select aria-label={field.label} name={field.name} defaultValue={field.value} required={field.required !== false}>{field.options.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select> : <input name={field.name} type={field.type || 'text'} defaultValue={field.value} required={field.required !== false} maxLength={field.maxLength ?? 200} min={field.type === 'number' ? 1 : undefined} step="1" />}</Field>)}<details className="oa-action-memo"><summary>메모 추가 (선택)</summary><Field label="메모"><textarea name="reason" maxLength={500} rows={3} placeholder="추가로 남길 내용이 있을 때만 입력하세요." /></Field></details>{error && <Notice error>{error}</Notice>}<div className="oa-dialog-actions"><button type="button" className="oa-button oa-secondary" disabled={pending} onClick={close}>취소</button><button className={`oa-button${danger ? ' oa-danger' : ''}`} disabled={pending}>{pending ? '처리 중…' : title}</button></div></form></Modal>
 }

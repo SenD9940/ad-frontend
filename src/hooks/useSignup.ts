@@ -1,6 +1,8 @@
-import { useId, useState, type ChangeEvent, type FormEvent } from 'react'
+import { useEffect, useId, useRef, useState, type ChangeEvent, type FormEvent } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { ApiError } from '../api/http'
 import { registerUser } from '../api/users'
+import { useModal } from '../components/common/useModal'
 import {
   firstErrorField,
   formatPhoneNumber,
@@ -25,10 +27,13 @@ const DAUM_POSTCODE_SRC =
   'https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js'
 
 export function useSignup() {
+  const modal = useModal()
+  const navigate = useNavigate(), location = useLocation()
+  const active = useRef(true), pending = useRef(false), postcodePending = useRef(false)
+  useEffect(() => { active.current = true; return () => { active.current = false } }, [])
   const formId = useId()
   const [values, setValues] = useState<SignupFormValues>(INITIAL_VALUES)
   const [errors, setErrors] = useState<SignupFieldErrors>({})
-  const [formError, setFormError] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [completedEmail, setCompletedEmail] = useState('')
@@ -46,7 +51,6 @@ export function useSignup() {
       delete next[name]
       return next
     })
-    setFormError('')
   }
 
   function handleChange(event: ChangeEvent<HTMLInputElement>) {
@@ -63,10 +67,14 @@ export function useSignup() {
   }
 
   async function openPostcode() {
+    if (postcodePending.current || pending.current) return
+    postcodePending.current = true
     try {
       await loadDaumPostcode()
+      if (!active.current) return
       new window.daum!.Postcode({
         oncomplete: (data) => {
+          if (!active.current || pending.current) return
           setValues((current) => ({
             ...current,
             zipCode: data.zonecode,
@@ -82,15 +90,16 @@ export function useSignup() {
         },
       }).open()
     } catch {
-      setFormError('주소 검색을 불러오지 못했습니다. 직접 입력해 주세요.')
-    }
+      if (active.current) void modal.error({ title: '주소 검색을 열 수 없습니다', message: '주소 검색을 불러오지 못했습니다. 주소를 직접 입력하거나 주소 없이 가입할 수 있습니다.', returnFocus: document.getElementById(fieldId('zipCode')) })
+    } finally { postcodePending.current = false }
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    if (pending.current || completedEmail) return
+    const returnFocus = event.currentTarget.querySelector<HTMLButtonElement>('button[type="submit"]')
     const nextErrors = validateSignupForm(values)
     setErrors(nextErrors)
-    setFormError('')
 
     const invalidField = firstErrorField(nextErrors)
     if (invalidField) {
@@ -98,7 +107,7 @@ export function useSignup() {
       return
     }
 
-    setSubmitting(true)
+    pending.current = true; setSubmitting(true)
     try {
       const user = await registerUser({
         email: values.email.trim(),
@@ -109,21 +118,19 @@ export function useSignup() {
         address: values.address.trim() || undefined,
         addressDetail: values.addressDetail.trim() || undefined,
       })
+      if (!active.current) return
       setCompletedEmail(user.email)
+      setValues(current => ({ ...current, password: '', passwordConfirm: '' }))
+      if (await modal.success({ title: '회원가입이 완료되었습니다', message: `${user.email} 계정으로 가입했습니다. 로그인하고 시작해 주세요.`, confirmLabel: '로그인하기' }) && active.current) navigate('/login', { replace: true, state: location.state })
     } catch (error) {
       const message =
         error instanceof ApiError
           ? error.message
           : '회원가입에 실패했습니다. 잠시 후 다시 시도해 주세요.'
-      setFormError(message)
-      requestAnimationFrame(() => {
-        document.getElementById(`${formId}-form-error`)?.scrollIntoView({
-          block: 'center',
-          behavior: 'smooth',
-        })
-      })
+      if (active.current) void modal.error({ title: '회원가입 실패', message, returnFocus })
     } finally {
-      setSubmitting(false)
+      pending.current = false
+      if (active.current) setSubmitting(false)
     }
   }
 
@@ -133,7 +140,6 @@ export function useSignup() {
     errorId,
     values,
     errors,
-    formError,
     submitting,
     showPassword,
     completedEmail,
@@ -169,6 +175,7 @@ function loadDaumPostcode(): Promise<void> {
     script.async = true
     script.onload = () => resolve()
     script.onerror = () => {
+      script.remove()
       daumPostcodeLoading = undefined
       reject()
     }

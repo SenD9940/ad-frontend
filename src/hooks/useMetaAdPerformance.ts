@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { ApiError } from '../api/http'
+import { useErrorModal } from '../components/common/useErrorModal'
 import {
   getMetaAdAccountPerformance, getMetaAdWorkspacePerformance,
   getMetaCampaigns, listSavedMetaAdAccounts,
@@ -97,6 +98,7 @@ function useReadRequest<T>(key: string | null, load: (signal: AbortSignal) => Pr
   }, [fallback, load, request])
 
   const current = request.key !== null && result?.request === request ? result : null
+  useErrorModal(current?.error, 'Meta 정보 조회 실패')
   const reload = useCallback(() => setRevision((value) => value + 1), [])
   return {
     data: current?.data ?? null,

@@ -1,7 +1,7 @@
 import { Link, useLocation } from 'react-router-dom'
 import styled from 'styled-components'
 import {
-  Eyebrow, Field, FieldError, Form, FormAlert, Input, Label, LabelRow,
+  Eyebrow, Field, FieldError, Form, Input, Label, LabelRow,
   Lead, Submit, SwitchAuth, Title, TogglePassword,
 } from '../../components/auth/AuthFormUI'
 import { useLogin } from '../../hooks/useLogin'
@@ -10,7 +10,7 @@ import { EMAIL_MAX_LENGTH } from './loginValidation'
 export default function LoginPage() {
   const location = useLocation()
   const {
-    formId, fieldId, errorId, values, errors, formError, submitting,
+    formId, fieldId, errorId, values, errors, submitting,
     showPassword, handleChange, handleSubmit, togglePassword,
   } = useLogin()
 
@@ -38,7 +38,6 @@ export default function LoginPage() {
           <Title id={`${formId}-title`}>다시 만나 반가워요</Title>
           <Lead>로그인하고 팀의 광고 운영을 이어가세요.</Lead>
           <Form onSubmit={handleSubmit} noValidate aria-labelledby={`${formId}-title`} aria-busy={submitting}>
-            {formError ? <FormAlert id={`${formId}-form-error`} role="alert">{formError}</FormAlert> : null}
             <Field>
               <Label htmlFor={fieldId('email')}>이메일</Label>
               <Input

@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AuthProvider } from './auth/AuthProvider'
 import RequireAuth from './components/auth/RequireAuth'
 import RouteEffects from './components/common/RouteEffects'
+import ModalProvider from './components/common/ModalProvider'
 import MainLayout from './components/layout/MainLayout'
 import WorkspaceAppLayout from './components/layout/WorkspaceAppLayout'
 import WorkspaceHomeLayout from './components/layout/WorkspaceHomeLayout'
@@ -27,7 +28,13 @@ const NaverOAuthCallbackPage = lazy(() => import('./pages/workspace/NaverOAuthCa
 const NaverConnectionsPage = lazy(() => import('./pages/workspace/NaverConnectionsPage'))
 const NaverHomePage = lazy(() => import('./pages/workspace/NaverHomePage'))
 const NaverPerformancePage = lazy(() => import('./pages/workspace/NaverPerformancePage'))
+const NaverOrdersPage = lazy(() => import('./pages/workspace/NaverOrdersPage'))
 const NaverProductCreatePage = lazy(() => import('./pages/workspace/NaverProductCreatePage'))
+const ImwebOAuthPage = lazy(() => import('./pages/workspace/ImwebOAuthPage'))
+const ImwebConnectionsPage = lazy(() => import('./pages/workspace/ImwebConnectionsPage'))
+const ImwebHomePage = lazy(() => import('./pages/workspace/ImwebHomePage'))
+const ImwebPerformancePage = lazy(() => import('./pages/workspace/ImwebPerformancePage'))
+const ImwebProductCreatePage = lazy(() => import('./pages/workspace/ImwebProductCreatePage'))
 const MetaPerformancePage = lazy(() => import('./pages/workspace/MetaPerformancePage'))
 const MetaHomePage = lazy(() => import('./pages/workspace/MetaHomePage'))
 const MetaAdCreatePage = lazy(() => import('./pages/workspace/MetaAdCreatePage'))
@@ -37,6 +44,7 @@ export default function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
+        <ModalProvider>
         <RouteEffects />
         <Routes>
           <Route path="/admin/*" element={<Suspense fallback={<p role="status">운영 콘솔을 불러오는 중…</p>}><AdminApp /></Suspense>} />
@@ -57,6 +65,8 @@ export default function App() {
                 </Suspense>
               } />
               <Route path="invite" element={<AcceptInvitePage />} />
+              <Route path="settings/integrations/imweb/connect" element={<Suspense fallback={<p role="status">아임웹 연결 화면을 불러오는 중…</p>}><ImwebOAuthPage entry /></Suspense>} />
+              <Route path="settings/integrations/imweb/callback" element={<Suspense fallback={<p role="status">아임웹 연결을 확인하는 중…</p>}><ImwebOAuthPage /></Suspense>} />
             </Route>
             <Route path="workspaces/:workspaceId" element={<WorkspaceAppLayout />}>
               <Route index element={<Navigate to="connections/meta" replace />} />
@@ -102,16 +112,22 @@ export default function App() {
                   <NaverPerformancePage />
                 </Suspense>
               } />
+              <Route path="naver/orders" element={<Suspense fallback={<p role="status">스마트스토어 주문을 불러오는 중…</p>}><NaverOrdersPage /></Suspense>} />
               <Route path="naver/products/new" element={
                 <Suspense fallback={<p role="status">스마트스토어 상품 등록 화면을 불러오는 중…</p>}>
                   <NaverProductCreatePage />
                 </Suspense>
               } />
               <Route path="connections/threads" element={<PlatformComingSoonPage platform="threads" />} />
+              <Route path="connections/imweb" element={<Suspense fallback={<p role="status">아임웹 화면을 불러오는 중…</p>}><ImwebHomePage /></Suspense>} />
+              <Route path="connections/imweb/assets" element={<Suspense fallback={<p role="status">아임웹 자산을 불러오는 중…</p>}><ImwebConnectionsPage /></Suspense>} />
+              <Route path="imweb/performance" element={<Suspense fallback={<p role="status">아임웹 성과를 불러오는 중…</p>}><ImwebPerformancePage /></Suspense>} />
+              <Route path="imweb/products/new" element={<Suspense fallback={<p role="status">아임웹 상품 등록 화면을 불러오는 중…</p>}><ImwebProductCreatePage /></Suspense>} />
               <Route path="connections/coupang" element={<PlatformComingSoonPage platform="coupang" />} />
             </Route>
           </Route>
         </Routes>
+        </ModalProvider>
       </BrowserRouter>
     </AuthProvider>
   )

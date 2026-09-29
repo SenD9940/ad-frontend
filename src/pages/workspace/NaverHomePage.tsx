@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Navigate, useLocation, useParams } from 'react-router-dom'
 import { ApiError } from '../../api/http'
 import { listSavedNaverStores } from '../../api/naverStores'
+import { useErrorModal } from '../../components/common/useErrorModal'
 import {
   DetailActionLink, DetailAlert, DetailEmpty, DetailPage, DetailPanel,
   DetailSecondaryButton, DetailStatus,
@@ -18,6 +19,7 @@ function NaverHomeContent({ workspaceId }: { workspaceId: number }) {
   const [result, setResult] = useState<{ hasStores: boolean | null; error: string }>({ hasStores: null, error: '' })
   const selectingChannels = new URLSearchParams(location.search).has('connectionId')
   const assetsPath = `/workspaces/${workspaceId}/connections/naver/assets`
+  useErrorModal(result.error, '스마트스토어 조회 실패', !selectingChannels)
 
   useEffect(() => {
     if (selectingChannels) return

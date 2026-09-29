@@ -1,4 +1,5 @@
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useErrorModal } from '../../components/common/useErrorModal'
 import { useEffect } from 'react'
 import styled from 'styled-components'
 import {
@@ -15,6 +16,7 @@ export default function MetaOAuthCallbackPage() {
   const errorCode = params.get('error_code')
   const validWorkspaceId = Boolean(workspaceId && /^\d+$/.test(workspaceId) && Number.isSafeInteger(Number(workspaceId)) && Number(workspaceId) > 0)
   const succeeded = status === 'success' && validWorkspaceId
+  useErrorModal(succeeded ? '' : `${callbackErrorMessage(errorCode)} 연결 페이지에서 다시 시도해 주세요.`, 'Meta 연결 실패')
   const returnPath = validWorkspaceId ? `/workspaces/${workspaceId}/connections/meta/assets` : '/workspaces'
 
   useEffect(() => {

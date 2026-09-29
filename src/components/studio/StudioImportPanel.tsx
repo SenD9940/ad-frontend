@@ -1,16 +1,21 @@
+import { useErrorModal } from '../common/useErrorModal'
+import { useModal } from '../common/useModal'
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { getStudioOutput } from '../../studio/api'
+import type { StudioKind } from '../../studio/types'
 import { DetailAlert, DetailHint, DetailPanel, DetailPanelBody, DetailPrimaryButton, DetailSecondaryButton, DetailStatus, PanelHeading } from '../../pages/workspace/WorkspaceDetailUI'
 
 export type StudioImportOutput = Awaited<ReturnType<typeof getStudioOutput>>
 
-export default function StudioImportPanel({ workspaceId, outputId, disabled, applied, onApply }: {
-  workspaceId: number; outputId: string; disabled?: boolean; applied?: boolean
+export default function StudioImportPanel({ workspaceId, outputId, expectedKind, disabled, applied, onApply }: {
+  workspaceId: number; outputId: string; expectedKind: StudioKind; disabled?: boolean; applied?: boolean
   onApply: (output: StudioImportOutput, signal: AbortSignal) => Promise<void>
 }) {
   const [output, setOutput] = useState<StudioImportOutput | null>(null)
   const [error, setError] = useState('')
+  const modal = useModal()
+  useErrorModal(error, 'AI 결과를 가져오지 못했습니다')
   const [attempt, setAttempt] = useState(0)
   const [busy, setBusy] = useState(false)
   const pending = useRef(false)
@@ -23,12 +28,16 @@ export default function StudioImportPanel({ workspaceId, outputId, disabled, app
     return () => { active = false; operation.current?.abort() }
   }, [workspaceId, outputId, attempt])
   const invalidId = !/^[1-9]\d*$/.test(outputId) || !Number.isSafeInteger(Number(outputId))
+  const mismatchedKind = output !== null && output.kind !== expectedKind
   async function apply() {
-    if (!output || output.status !== 'SUCCEEDED' || disabled || pending.current || applied) return
+    if (!output || output.kind !== expectedKind || output.status !== 'SUCCEEDED' || disabled || pending.current || applied) return
     pending.current = true; setBusy(true); setError('')
     const controller = new AbortController()
     operation.current = controller
-    try { await onApply(output, controller.signal) }
+    try {
+      await onApply(output, controller.signal)
+      if (!controller.signal.aborted) void modal.success({ title: 'AI 결과 적용 완료', message: '등록 화면에 AI 결과를 적용했습니다. 이미지와 내용을 확인한 뒤 광고 또는 상품을 등록해 주세요.' })
+    }
     catch (caught) { if (!controller.signal.aborted) setError(caught instanceof Error ? caught.message : 'AI 결과를 적용하지 못했습니다.') }
     finally { pending.current = false; if (!controller.signal.aborted) setBusy(false) }
   }
@@ -40,12 +49,15 @@ export default function StudioImportPanel({ workspaceId, outputId, disabled, app
         {output && <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
           {output.imageUrl && <img src={output.imageUrl} alt="선택한 AI 결과" style={{ width: 90, height: 90, objectFit: 'contain', borderRadius: 10 }} />}
           <div><strong>{output.title}</strong><DetailHint>{output.kind === 'DETAIL_PAGE' ? '판매용 상세페이지와 이미지' : '광고 소재 이미지'}</DetailHint></div>
-          <DetailPrimaryButton type="button" disabled={output.status !== 'SUCCEEDED' || disabled || busy || applied} onClick={() => void apply()}>{busy ? '적용 중…' : applied ? '적용 완료' : '등록 화면에 적용'}</DetailPrimaryButton>
+          {!mismatchedKind && <DetailPrimaryButton type="button" disabled={output.status !== 'SUCCEEDED' || disabled || busy || applied} onClick={() => void apply()}>{busy ? '적용 중…' : applied ? '적용 완료' : '등록 화면에 적용'}</DetailPrimaryButton>}
         </div>}
+        {mismatchedKind && <DetailAlert role="alert">{expectedKind === 'AD_IMAGE'
+          ? 'Meta 광고에는 광고 소재 이미지만 적용할 수 있습니다. 상세페이지는 네이버 스마트스토어·아임웹 상품 등록에서 사용해 주세요.'
+          : '네이버 스마트스토어·아임웹 상품에는 상세페이지만 적용할 수 있습니다. 광고 소재는 Meta 광고 등록에서 사용해 주세요.'}</DetailAlert>}
         {output && output.status !== 'SUCCEEDED' && <DetailAlert role="status">{output.status === 'PENDING' ? '이미지를 생성하고 있습니다. 내 결과에서 완료 여부를 확인해 주세요.' : '생성이 완료되지 않은 결과입니다. AI 스튜디오에서 다른 결과를 선택해 주세요.'}</DetailAlert>}
         {error && <DetailAlert role="alert">{error}</DetailAlert>}
         {!output && error && <DetailSecondaryButton type="button" onClick={() => { setError(''); setAttempt(value => value + 1) }}>다시 불러오기</DetailSecondaryButton>}
-        {disabled && !busy && <DetailHint>연결된 계정과 필요한 자산을 먼저 선택해 주세요.</DetailHint>}
+        {disabled && !busy && !mismatchedKind && <DetailHint>연결된 계정과 필요한 자산을 먼저 선택해 주세요.</DetailHint>}
       </>}
       <DetailHint><Link to={`/workspaces/${workspaceId}/studio/outputs`}>AI 스튜디오 결과 목록</Link> · 적용만으로 광고나 상품이 등록되지는 않습니다.</DetailHint>
     </DetailPanelBody>

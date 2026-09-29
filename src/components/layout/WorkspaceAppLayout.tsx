@@ -4,6 +4,7 @@ import styled from 'styled-components'
 import { ApiError } from '../../api/http'
 import { getMyWorkspace } from '../../api/workspaces'
 import AppShell from './AppShell'
+import { useErrorModal } from '../common/useErrorModal'
 
 export default function WorkspaceAppLayout() {
   const { workspaceId } = useParams()
@@ -17,6 +18,7 @@ function WorkspaceContent({ workspaceId }: { workspaceId: string }) {
   const [error, setError] = useState(valid ? '' : '워크스페이스를 찾을 수 없습니다.')
   const [loading, setLoading] = useState(valid)
   const [attempt, setAttempt] = useState(0)
+  useErrorModal(error, '워크스페이스를 열 수 없습니다', valid)
 
   useEffect(() => {
     if (!valid) return

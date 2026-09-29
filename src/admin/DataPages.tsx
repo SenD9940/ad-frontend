@@ -23,7 +23,7 @@ export function WorkspacesPage() { return <ListPage<Workspace> title="워크스�
   { label: '생성일', render: row => formatDate(row.registeredAt) },
 ]} /> }
 export function ConnectionsPage() { return <ListPage<Connection> title="회원 연동 현황" description="회원이 저장한 외부 계정과 재인증 필요 여부를 확인합니다." path="/connections" filters={[
-  { name: 'workspaceId', label: '워크스페이스 ID' }, { name: 'provider', label: '플랫폼', options: [['', '모든 플랫폼'], ['META', 'Meta'], ['NAVER', '네이버'], ['GOOGLE', 'Google'], ['THREADS', 'Threads'], ['COUPANG', '쿠팡']] }, { name: 'requiresReauth', label: '연결 상태', options: [['', '전체 상태'], ['true', '재인증 필요'], ['false', '재인증 요청 없음']] },
+  { name: 'workspaceId', label: '워크스페이스 ID' }, { name: 'provider', label: '플랫폼', options: [['', '모든 플랫폼'], ['META', 'Meta'], ['NAVER', '네이버'], ['IMWEB', '아임웹'], ['GOOGLE', 'Google'], ['THREADS', 'Threads'], ['COUPANG', '쿠팡']] }, { name: 'requiresReauth', label: '연결 상태', options: [['', '전체 상태'], ['true', '재인증 필요'], ['false', '재인증 요청 없음']] },
 ]} columns={[
   { label: '연결 계정', render: row => <Link to={`/admin/connections/${row.id}`}>{row.accountName || row.externalAccountId}<small>{row.provider} · #{row.id}</small></Link> },
   { label: '워크스페이스', render: row => <WorkspaceLink id={row.workspaceId}>{row.workspaceName}</WorkspaceLink> },

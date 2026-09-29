@@ -1,4 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import Modal from '../../components/common/Modal'
+import { useErrorModal } from '../../components/common/useErrorModal'
 import { Link, useSearchParams } from 'react-router-dom'
 import styled from 'styled-components'
 import { ApiError } from '../../api/http'
@@ -25,6 +27,7 @@ export default function NaverOAuthCallbackPage() {
   const [params] = useSearchParams()
   const attemptId = params.get('attempt_id')
   const receipt = params.get('marketplace_receipt')
+  useErrorModal(!validNaverAttemptId(attemptId) && !(receipt && /^[A-Za-z0-9_-]{16,128}$/.test(receipt)) ? '네이버 연결 화면에서 인증을 다시 시작해 주세요.' : '', '연결 요청을 확인할 수 없습니다')
   if (validNaverAttemptId(attemptId)) return <AuthorizationResult key={attemptId} attemptId={attemptId} />
   if (receipt && /^[A-Za-z0-9_-]{16,128}$/.test(receipt)) return <MarketplaceWorkspacePicker receipt={receipt} />
   return <CallbackPage><DetailPanel><DetailEmpty><DetailTitle>연결 요청을 확인할 수 없어요</DetailTitle><p>네이버 연결 화면에서 인증을 다시 시작해 주세요.</p><DetailActionLink to="/workspaces">워크스페이스로 이동</DetailActionLink></DetailEmpty></DetailPanel></CallbackPage>
@@ -34,6 +37,7 @@ function AuthorizationResult({ attemptId }: { attemptId: string }) {
   const flow = useNaverAuthorization(attemptId)
   const [workspace, setWorkspace] = useState<WorkspaceResponse | null>(null)
   const [workspaceError, setWorkspaceError] = useState('')
+  useErrorModal(workspaceError, '워크스페이스 확인 실패')
   const [workspaceVersion, setWorkspaceVersion] = useState(0)
   const workspaceId = flow.state?.workspaceId
   useEffect(() => {
@@ -50,6 +54,7 @@ function AuthorizationResult({ attemptId }: { attemptId: string }) {
     if (window.opener) window.opener.postMessage({ type: NAVER_WINDOW_MESSAGE, attemptId }, window.location.origin)
   }, [attemptId])
   const state = flow.state
+  useErrorModal(state && ['FAILED', 'EXPIRED'].includes(state.status) ? state.errorMessage || '연결 요청이 만료되었거나 완료되지 않았습니다. 네이버 연결 화면에서 다시 시작해 주세요.' : '', '네이버 연결 실패')
   const workspaceName = workspace && workspace.id === workspaceId ? workspace.name : null
   const returnPath = workspaceId ? `/workspaces/${workspaceId}/connections/naver/assets` : '/workspaces'
   const preApproval = state && ['WAITING_AUTH', 'VALIDATING', 'REVIEW_REQUIRED'].includes(state.status)
@@ -67,7 +72,7 @@ function AuthorizationResult({ attemptId }: { attemptId: string }) {
             {state.status === 'VALIDATING' && <DetailStatus role="status">네이버에서 받은 판매자 정보를 확인하고 있습니다.</DetailStatus>}
             {state.status === 'REVIEW_REQUIRED' && <>
               {workspaceError && <><DetailAlert role="alert">{workspaceError}</DetailAlert><DetailSecondaryButton onClick={() => setWorkspaceVersion((value) => value + 1)}>워크스페이스 다시 조회</DetailSecondaryButton></>}
-              <ConnectionReview key={`${state.attemptId}:${state.reviewRevision}`} state={state} workspaceName={workspaceName} disabled={flow.busy || flow.unknown || !workspaceName} onConfirm={flow.complete} />
+              <ConnectionReview key={`${state.attemptId}:${state.reviewRevision}`} state={state} workspaceName={workspaceName} disabled={flow.busy || flow.unknown || !workspaceName} busy={flow.busy} onConfirm={flow.complete} />
             </>}
             {['APPROVING', 'RECONCILING', 'VERIFYING_CONNECTION'].includes(state.status) && <><DetailStatus role="status">{state.status === 'RECONCILING' ? '구독 승인 결과를 확인하고 있습니다. 잠시 후 상태를 다시 조회해 주세요.' : '연결을 처리하고 있습니다. 페이지를 새로 열어도 이 요청의 상태를 확인할 수 있습니다.'}</DetailStatus><DetailHint>결과가 확인될 때까지 새로운 연결 요청을 만들지 않아도 됩니다.</DetailHint></>}
             {state.status === 'CONNECTED' && <><DetailAlert $success role="status">스마트스토어 연결을 저장했습니다. 사용할 채널을 선택해 주세요.</DetailAlert><DetailActionLink to={`${returnPath}?connectionId=${state.connectionId}`}>스마트스토어 채널 선택</DetailActionLink></>}
@@ -83,12 +88,23 @@ function AuthorizationResult({ attemptId }: { attemptId: string }) {
   )
 }
 
-function ConnectionReview({ state, workspaceName, disabled, onConfirm }: {
-  state: NaverAuthorization; workspaceName: string | null; disabled: boolean; onConfirm: () => Promise<void>
+function ConnectionReview({ state, workspaceName, disabled, busy, onConfirm }: {
+  state: NaverAuthorization; workspaceName: string | null; disabled: boolean; busy: boolean; onConfirm: () => Promise<void>
 }) {
+  const [open, setOpen] = useState(false)
   const [confirmed, setConfirmed] = useState(false)
+  const pending = useRef(false)
+  async function confirm() {
+    if (pending.current || disabled || !confirmed) return
+    pending.current = true
+    try { await onConfirm() }
+    finally { pending.current = false; setOpen(false) }
+  }
   const url = safeStoreUrl(state.seller?.storeUrl)
   return <>
+    <DetailHint>연결할 스토어와 워크스페이스, 신청 요금제를 확인한 뒤 연결을 확정해 주세요.</DetailHint>
+    <DetailPrimaryButton disabled={disabled} onClick={() => { setConfirmed(false); setOpen(true) }}>연결 내용 확인</DetailPrimaryButton>
+    <Modal open={open} title="스마트스토어 연결 확인" description="스토어와 구독 요금제·결제 조건을 확인해 주세요." variant="confirm" busy={busy} onClose={() => setOpen(false)}>
     <Summary>
       <div><dt>워크스페이스</dt><dd>{workspaceName || '워크스페이스 확인 중…'}</dd></div>
       <div><dt>스마트스토어</dt><dd>{state.seller?.name}</dd></div>
@@ -98,7 +114,8 @@ function ConnectionReview({ state, workspaceName, disabled, onConfirm }: {
     </Summary>
     <DetailHint>{state.subscription?.billingDescription || '요금과 결제 조건은 네이버에서 신청한 내역을 확인해 주세요. 금액이 표시되지 않아도 무료를 의미하지 않습니다.'}</DetailHint>
     <Consent><input type="checkbox" checked={confirmed} onChange={(event) => setConfirmed(event.target.checked)} disabled={disabled} /><span>스토어, 워크스페이스와 구독 요금제·결제 조건을 확인했습니다.</span></Consent>
-    <DetailPrimaryButton disabled={disabled || !confirmed} onClick={() => void onConfirm()}>이 워크스페이스에 연결</DetailPrimaryButton>
+    <Actions><DetailSecondaryButton disabled={busy} onClick={() => setOpen(false)}>돌아가기</DetailSecondaryButton><DetailPrimaryButton disabled={disabled || !confirmed} onClick={() => void confirm()}>이 워크스페이스에 연결</DetailPrimaryButton></Actions>
+    </Modal>
   </>
 }
 
@@ -106,6 +123,7 @@ function MarketplaceWorkspacePicker({ receipt }: { receipt: string }) {
   const [workspaces, setWorkspaces] = useState<WorkspaceResponse[] | null>(null)
   const [selected, setSelected] = useState('')
   const [error, setError] = useState('')
+  useErrorModal(error, '워크스페이스 조회 실패')
   const [version, setVersion] = useState(0)
   useEffect(() => {
     let active = true

@@ -1,3 +1,5 @@
+import { useErrorModal } from '../components/common/useErrorModal'
+import { useModal } from '../components/common/useModal'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { adminWrite } from './api'
@@ -36,19 +38,24 @@ function ExistingTemplate({ id }: { id: string }) {
 type AnalysisField = keyof StudioTemplateAnalysis
 function TemplateForm({ initial }: { initial?: StudioTemplate }) {
   const navigate = useNavigate()
+  const modal = useModal()
   const [values, setValues] = useState({ title: initial?.title || '', kind: initial?.kind || 'AD_IMAGE' as StudioKind, description: initial?.description || '', categoryId: initial?.categoryId ? String(initial.categoryId) : '', prompt: initial?.prompt || '', published: initial?.published || false })
   const categories = useResource<StudioCategory[]>(categoryPath)
   const [creatingCategory, setCreatingCategory] = useState(false)
   const [categoryEditor, setCategoryEditor] = useState(false)
   const [categoryName, setCategoryName] = useState('')
   const [categoryError, setCategoryError] = useState('')
+  useErrorModal(categoryError, '카테고리를 등록하지 못했습니다')
   const categoryPending = useRef(false)
   const [preview, setPreview] = useState({ key: initial?.previewImageKey || '', url: initial?.previewImageUrl ?? initial?.imageUrl ?? '' })
   const [uploading, setUploading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [remoteError, setRemoteError] = useState(false)
+  useErrorModal(error, '샘플 등록 정보를 확인해 주세요', remoteError)
   const [saved, setSaved] = useState(false)
   const [analysis, setAnalysis] = useState<{ status: 'idle' | 'running' | 'done' | 'failed'; message: string }>({ status: 'idle', message: '' })
+  useErrorModal(analysis.status === 'failed' ? analysis.message : undefined, '이미지 분석 확인')
   const [suggestion, setSuggestion] = useState<StudioTemplateAnalysis | null>(null)
   const edited = useRef({ title: Boolean(initial?.title), description: Boolean(initial?.description), prompt: Boolean(initial?.prompt) })
   const pending = useRef(false)
@@ -90,7 +97,7 @@ function TemplateForm({ initial }: { initial?: StudioTemplate }) {
   }
   async function upload(file: File) {
     if (uploadPending.current || pending.current || categoryPending.current) return
-    if (!['image/jpeg', 'image/png'].includes(file.type) || !file.size || file.size > 10 * 1024 * 1024) { setError('JPG 또는 PNG 이미지를 10MB 이하로 선택해 주세요.'); return }
+    if (!['image/jpeg', 'image/png'].includes(file.type) || !file.size || file.size > 10 * 1024 * 1024) { setRemoteError(false); setError('JPG 또는 PNG 이미지를 10MB 이하로 선택해 주세요.'); return }
     cancelAnalysis()
     uploadPending.current = true; setUploading(true); setError(''); setSaved(false)
     const controller = new AbortController(); uploadController.current = controller
@@ -105,7 +112,7 @@ function TemplateForm({ initial }: { initial?: StudioTemplate }) {
       setValues(current => ({ ...current, title: edited.current.title ? current.title : '', description: edited.current.description ? current.description : '', prompt: edited.current.prompt ? current.prompt : '' }))
     } catch (caught) {
       image = undefined
-      if (active.current && !controller.signal.aborted) setError(caught instanceof Error ? caught.message : '이미지를 올리지 못했습니다.')
+      if (active.current && !controller.signal.aborted) { setRemoteError(true); setError(caught instanceof Error ? caught.message : '이미지를 올리지 못했습니다.') }
     } finally {
       uploadPending.current = false; uploadController.current = null
       if (active.current) setUploading(false)
@@ -115,15 +122,15 @@ function TemplateForm({ initial }: { initial?: StudioTemplate }) {
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (pending.current || uploadPending.current || categoryPending.current || analysisController.current || categories.loading) return
-    if (!categories.data?.some(category => category.id === Number(values.categoryId))) { setError('카테고리를 선택해 주세요.'); return }
-    if ((!initial || values.published) && !preview.key) { setError('샘플 이미지를 먼저 업로드해 주세요.'); return }
+    if (!categories.data?.some(category => category.id === Number(values.categoryId))) { setRemoteError(false); setError('카테고리를 선택해 주세요.'); return }
+    if ((!initial || values.published) && !preview.key) { setRemoteError(false); setError('샘플 이미지를 먼저 업로드해 주세요.'); return }
     pending.current = true; setSaving(true); setError(''); setSaved(false)
     try {
       const template = await adminWrite<StudioTemplate>(initial ? `${path}/${initial.id}` : path, { ...values, title: values.title.trim(), description: values.description.trim(), categoryId: Number(values.categoryId), prompt: values.prompt.trim(), previewImageKey: preview.key }, initial ? 'patch' : 'post')
       if (!active.current) return
       if (!initial) navigate(`/admin/studio/${template.id}`, { replace: true })
-      else { setValues(current => ({ ...current, title: template.title, description: template.description || '', prompt: template.prompt || '' })); setSaved(true) }
-    } catch (caught) { if (active.current) setError(caught instanceof Error ? caught.message : '샘플을 저장하지 못했습니다.') }
+      else { setValues(current => ({ ...current, title: template.title, description: template.description || '', prompt: template.prompt || '' })); setSaved(true); void modal.success({ title: '샘플 저장 완료', message: template.published ? '샘플을 저장했습니다. 고객에게 공개된 상태입니다.' : '샘플을 비공개 상태로 저장했습니다.' }) }
+    } catch (caught) { if (active.current) { setRemoteError(true); setError(caught instanceof Error ? caught.message : '샘플을 저장하지 못했습니다.') } }
     finally { pending.current = false; if (active.current) setSaving(false) }
   }
   async function createCategory() {

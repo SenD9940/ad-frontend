@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useModal } from '../../components/common/useModal'
 import styled from 'styled-components'
 import { MetaAdImageFileError, uploadMetaAdImage } from '../../api/metaAdImages'
 import type { MetaAdImageUploadResponse } from '../../api/metaAdImages'
@@ -23,6 +24,7 @@ export type MetaAdImageInputProps = {
 }
 
 export function MetaAdImageInput({ workspaceId, assetId, disabled, value, onChange, onBusyChange, error }: MetaAdImageInputProps) {
+  const modal = useModal()
   const [chosenFile, setChosenFile] = useState<File | null>(null)
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [canRetry, setCanRetry] = useState(false)
@@ -68,7 +70,9 @@ export function MetaAdImageInput({ workspaceId, assetId, disabled, value, onChan
       if (isCurrent()) onChange({ ...uploaded, workspaceId, assetId, file, fileName: file.name })
     } catch (caught) {
       if (isCurrent()) {
-        setUploadError(caught instanceof Error ? caught.message : '이미지를 업로드하지 못했습니다. 다시 시도해 주세요.')
+        const message = caught instanceof Error ? caught.message : '이미지를 업로드하지 못했습니다. 다시 시도해 주세요.'
+        setUploadError(message)
+        if (!(caught instanceof MetaAdImageFileError)) void modal.error({ title: '광고 이미지 업로드 실패', message })
         setCanRetry(!(caught instanceof MetaAdImageFileError))
       }
     } finally {

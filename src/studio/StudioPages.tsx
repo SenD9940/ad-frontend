@@ -1,8 +1,11 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { useErrorModal } from '../components/common/useErrorModal'
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, Route, Routes, useNavigate, useParams } from 'react-router-dom'
 import { readSupportSession } from '../support/session'
 import type { PlatformConnectionResponse } from '../types/platform'
 import type { NaverStore } from '../types/naverStore'
+import { listImwebStores } from '../api/imweb'
+import { useImwebResource } from '../hooks/useImwebResource'
 import { createStudioGeneration, downloadStudioImage, StudioGenerationError, studioPath, uploadStudioProductImage } from './api'
 import { StudioBack, StudioEmpty, StudioFrame, StudioImage, StudioNotice, StudioPagination, StudioResourceState } from './StudioUI'
 import { studioKindLabel, type StudioCapabilities, type StudioCategory, type StudioKind, type StudioOutput, type StudioPage, type StudioTemplate } from './types'
@@ -41,7 +44,7 @@ function TemplateGallery({ workspaceId }: { workspaceId: string }) {
   const capabilities = useStudioResource<StudioCapabilities>(`${studioPath(workspaceId)}/capabilities`)
   const categories = useStudioResource<StudioCategory[]>(`${studioPath(workspaceId)}/categories`)
   return <StudioFrame workspaceId={workspaceId} title="AI 스튜디오" description="샘플의 스타일을 선택하고, 우리 상품에 맞는 광고 이미지와 상세페이지를 만들어 보세요.">
-    <section className="studio-welcome"><div><span className="studio-badge">IDEA → CREATIVE</span><h2>상품의 매력을,<br />새로운 이미지로.</h2><p>생성한 결과는 Meta 광고와 네이버 스마트스토어 등록 화면에서 이어서 사용할 수 있습니다.</p></div><ol><li><span>01</span>스타일 선택</li><li><span>02</span>상품 정보 입력</li><li><span>03</span>결과 확인 및 사용</li></ol></section>
+    <section className="studio-welcome"><div><span className="studio-badge">IDEA → CREATIVE</span><h2>상품의 매력을,<br />새로운 이미지로.</h2><p>광고 소재는 Meta 광고에, 상세페이지는 네이버 스마트스토어·아임웹 상품 등록에 사용할 수 있습니다.</p></div><ol><li><span>01</span>스타일 선택</li><li><span>02</span>상품 정보 입력</li><li><span>03</span>결과 확인 및 사용</li></ol></section>
     {capabilities.data && !capabilities.data.enabled && <StudioNotice>{capabilities.data.disabledReason || 'AI 생성 서비스를 준비 중입니다. 템플릿을 먼저 둘러보세요.'}</StudioNotice>}
     <div className="studio-toolbar"><KindButtons value={filter.kind} change={kind => setFilter(current => ({ ...current, kind, page: 0 }))} /><label className="studio-field studio-category-filter"><span className="studio-sr-only">카테고리 필터</span><select aria-label="카테고리 필터" value={filter.categoryId} disabled={categories.loading || Boolean(categories.error)} onChange={event => setFilter(current => ({ ...current, categoryId: event.target.value, page: 0 }))}><option value="">전체 카테고리</option>{categories.data?.map(category => <option key={category.id} value={category.id}>{category.name}</option>)}</select></label><form role="search" onSubmit={event => { event.preventDefault(); const data = new FormData(event.currentTarget); setFilter(current => ({ ...current, q: String(data.get('q') || '').trim(), page: 0 })) }}><input aria-label="템플릿 검색" name="q" maxLength={100} placeholder="템플릿 이름, 스타일 검색" /><button className="studio-button studio-secondary">검색</button></form></div>
     {categories.error && <StudioNotice error>{categories.error}<button className="studio-button studio-secondary" onClick={categories.reload}>카테고리 다시 조회</button></StudioNotice>}<StudioResourceState {...templates} />
@@ -63,8 +66,11 @@ function GenerationForm({ workspaceId, template }: { workspaceId: string; templa
   const [productImage, setProductImage] = useState<{ imageKey: string; imageUrl: string } | null>(null)
   const [uploading, setUploading] = useState(false)
   const [uploadError, setUploadError] = useState('')
+  const [remoteUploadError, setRemoteUploadError] = useState(false)
+  useErrorModal(uploadError, '상품 사진을 확인해 주세요', remoteUploadError)
   const uploadPending = useRef(false)
   const [failure, setFailure] = useState<{ message: string; unknown: boolean } | null>(null)
+  useErrorModal(failure?.message, failure?.unknown ? 'AI 생성 결과 확인 필요' : 'AI 소재를 생성하지 못했습니다')
   const pending = useRef(false)
   const active = useRef(true)
   useEffect(() => { active.current = true; return () => { active.current = false } }, [])
@@ -76,12 +82,12 @@ function GenerationForm({ workspaceId, template }: { workspaceId: string; templa
   }, [busy])
   async function upload(file: File) {
     if (pending.current || uploadPending.current) return
-    if (!['image/jpeg', 'image/png'].includes(file.type) || !file.size || file.size > 10 * 1024 * 1024) { setUploadError('JPG 또는 PNG 이미지를 10MB 이하로 선택해 주세요.'); return }
+    if (!['image/jpeg', 'image/png'].includes(file.type) || !file.size || file.size > 10 * 1024 * 1024) { setRemoteUploadError(false); setUploadError('JPG 또는 PNG 이미지를 10MB 이하로 선택해 주세요.'); return }
     uploadPending.current = true; setUploading(true); setUploadError('')
     try {
       const image = await uploadStudioProductImage(workspaceId, file)
       if (active.current) setProductImage(image)
-    } catch (error) { if (active.current) setUploadError(error instanceof Error ? error.message : '상품 사진을 업로드하지 못했습니다.') }
+    } catch (error) { if (active.current) { setRemoteUploadError(true); setUploadError(error instanceof Error ? error.message : '상품 사진을 업로드하지 못했습니다.') } }
     finally { uploadPending.current = false; if (active.current) setUploading(false) }
   }
   async function generate(event: FormEvent<HTMLFormElement>) {
@@ -107,7 +113,7 @@ function GenerationForm({ workspaceId, template }: { workspaceId: string; templa
       {busy && <StudioNotice>AI가 소재를 만들고 있습니다. 몇 분 정도 걸릴 수 있습니다. 이 화면에서 결과를 기다려 주세요.</StudioNotice>}
       <button className="studio-button" disabled={busy || uploading || !capabilities.data?.enabled || Boolean(failure?.unknown) || !values.productName.trim() || !values.productDescription.trim()}>{busy ? '생성 중…' : `${studioKindLabel[template.kind]} 생성`}</button>
       <p className="studio-note">상품 정보·사진과 샘플 스타일이 OpenAI로 전달됩니다. 이미지·문구와 상품 정보를 확인한 후 등록하세요.</p>
-    </form></section><aside className="studio-panel studio-summary"><StudioImage src={templateImage(template)} title={template.title} kind={template.kind} /><div className="studio-meta"><span className="studio-badge">{studioKindLabel[template.kind]}</span><span>{template.categoryName}</span></div><h2>{template.title}</h2><p>{template.description}</p><div className="studio-step"><span>1</span><div><strong>상품 정보에 맞춰 생성</strong><p>선택한 스타일을 참고해 새로운 결과를 만듭니다.</p></div></div><div className="studio-step"><span>2</span><div><strong>확인 후 채널에서 사용</strong><p>Meta 광고 또는 스마트스토어 등록 화면으로 이어서 이동할 수 있습니다.</p></div></div></aside></div>
+    </form></section><aside className="studio-panel studio-summary"><StudioImage src={templateImage(template)} title={template.title} kind={template.kind} /><div className="studio-meta"><span className="studio-badge">{studioKindLabel[template.kind]}</span><span>{template.categoryName}</span></div><h2>{template.title}</h2><p>{template.description}</p><div className="studio-step"><span>1</span><div><strong>상품 정보에 맞춰 생성</strong><p>선택한 스타일을 참고해 새로운 결과를 만듭니다.</p></div></div><div className="studio-step"><span>2</span><div><strong>확인 후 채널에서 사용</strong><p>{template.kind === 'AD_IMAGE' ? '생성한 광고 소재를 Meta 광고 등록 화면에서 사용할 수 있습니다.' : '생성한 상세페이지를 네이버 스마트스토어·아임웹 상품 등록 화면에서 사용할 수 있습니다.'}</p></div></div></aside></div>
 }
 
 function OutputGallery({ workspaceId }: { workspaceId: string }) {
@@ -130,6 +136,8 @@ function OutputDetail({ workspaceId }: { workspaceId: string }) {
 function OutputContent({ workspaceId, output }: { workspaceId: string; output: StudioOutput }) {
   const [download, setDownload] = useState(false)
   const [error, setError] = useState('')
+  useErrorModal(error, '이미지를 다운로드하지 못했습니다')
+  useErrorModal(output.status === 'FAILED' ? output.failureMessage || '소재를 생성하지 못했습니다. 상품 정보를 확인하고 다시 만들어 주세요.' : undefined, 'AI 생성 결과 확인')
   const downloading = useRef(false)
   const ready = output.status === 'SUCCEEDED'
   async function saveImage() {
@@ -149,19 +157,34 @@ function OutputContent({ workspaceId, output }: { workspaceId: string; output: S
   </>
 }
 function OutputDestination({ workspaceId, output }: { workspaceId: string; output: StudioOutput }) {
+  if (output.kind === 'AD_IMAGE') return <MetaOutputDestination workspaceId={workspaceId} output={output} />
+  if (output.kind === 'DETAIL_PAGE') return <div style={{ display: 'grid', gap: 20, minWidth: 0, alignContent: 'start' }}><NaverOutputDestination workspaceId={workspaceId} output={output} /><ImwebOutputDestination workspaceId={workspaceId} output={output} /></div>
+  return null
+}
+function MetaOutputDestination({ workspaceId, output }: { workspaceId: string; output: StudioOutput }) {
   const connections = useStudioResource<PlatformConnectionResponse[]>(`/api/workspaces/${workspaceId}/connections`)
-  const stores = useStudioResource<NaverStore[]>(`/api/workspaces/${workspaceId}/naver/stores`)
   const [selectedMeta, setSelectedMeta] = useState('')
-  const [selectedNaver, setSelectedNaver] = useState('')
   const accounts = (connections.data || []).filter(connection => connection.providerType === 'META').flatMap(connection => connection.assets.filter(asset => asset.platformType === 'FACEBOOK' && asset.assetType === 'AD_ACCOUNT').map(asset => ({ ...asset, requiresReauth: connection.requiresReauth })))
   const uniqueAccounts = [...new Map(accounts.map(account => [account.id, account])).values()]
   const availableAccounts = uniqueAccounts.filter(account => !account.requiresReauth)
-  const availableStores = (stores.data || []).filter(store => !store.requiresReauth)
   const metaId = selectedMeta || String(availableAccounts[0]?.id || '')
-  const naverId = selectedNaver || String(availableStores[0]?.assetId || '')
   const metaValid = availableAccounts.some(account => String(account.id) === metaId)
+  return <aside className="studio-panel"><h2>Meta 광고에 사용</h2><p>광고 계정을 선택하고 등록 화면에서 나머지 설정을 입력하세요.</p><section className="studio-destination"><div className="studio-channel"><span className="studio-meta-mark">∞</span><strong>Meta 광고</strong></div><StudioResourceState {...connections} />{connections.data && (uniqueAccounts.length ? <><label className="studio-field"><span>광고 계정</span><select aria-label="Meta 광고 계정" value={metaId} onChange={event => setSelectedMeta(event.target.value)}>{!metaValid && <option value="">계정을 선택하세요</option>}{uniqueAccounts.map(account => <option key={account.id} value={account.id} disabled={account.requiresReauth}>{account.name || account.externalId}{account.requiresReauth ? ' · 재연결 필요' : ''}</option>)}</select></label>{metaValid ? <Link className="studio-button studio-secondary" to={`/workspaces/${workspaceId}/meta/ads/new?assetId=${metaId}&studioOutputId=${output.id}`}>광고 이미지로 사용</Link> : <Link to={`/workspaces/${workspaceId}/connections/meta/assets`}>Meta 자산 편집</Link>}<p className="studio-note">생성한 이미지를 광고 소재로 가져옵니다.</p></> : <p>저장된 광고 계정이 없습니다. <Link to={`/workspaces/${workspaceId}/connections/meta/assets`}>Meta 연결</Link></p>)}</section></aside>
+}
+function NaverOutputDestination({ workspaceId, output }: { workspaceId: string; output: StudioOutput }) {
+  const stores = useStudioResource<NaverStore[]>(`/api/workspaces/${workspaceId}/naver/stores`)
+  const [selectedNaver, setSelectedNaver] = useState('')
+  const availableStores = (stores.data || []).filter(store => !store.requiresReauth)
+  const naverId = selectedNaver || String(availableStores[0]?.assetId || '')
   const naverValid = availableStores.some(store => String(store.assetId) === naverId)
-  return <aside className="studio-panel"><h2>어디에 사용할까요?</h2><p>등록 화면에서 생성 결과를 가져온 후 나머지 설정을 입력하세요.</p><section className="studio-destination"><div className="studio-channel"><span className="studio-meta-mark">∞</span><strong>Meta 광고</strong></div><StudioResourceState {...connections} />{connections.data && (uniqueAccounts.length ? <><label className="studio-field"><span>광고 계정</span><select aria-label="Meta 광고 계정" value={metaId} onChange={event => setSelectedMeta(event.target.value)}>{!metaValid && <option value="">계정을 선택하세요</option>}{uniqueAccounts.map(account => <option key={account.id} value={account.id} disabled={account.requiresReauth}>{account.name || account.externalId}{account.requiresReauth ? ' · 재연결 필요' : ''}</option>)}</select></label>{metaValid ? <Link className="studio-button studio-secondary" to={`/workspaces/${workspaceId}/meta/ads/new?assetId=${metaId}&studioOutputId=${output.id}`}>광고 이미지로 사용</Link> : <Link to={`/workspaces/${workspaceId}/connections/meta/assets`}>Meta 자산 편집</Link>}<p className="studio-note">{output.kind === 'DETAIL_PAGE' ? '상세페이지의 대표 이미지를 광고 소재로 가져옵니다.' : '생성한 이미지를 광고 소재로 가져옵니다.'}</p></> : <p>저장된 광고 계정이 없습니다. <Link to={`/workspaces/${workspaceId}/connections/meta/assets`}>Meta 연결</Link></p>)}</section>
-    <section className="studio-destination"><div className="studio-channel"><span className="studio-naver-mark">N</span><strong>네이버 스마트스토어</strong></div><StudioResourceState {...stores} />{stores.data && (stores.data.length ? <><label className="studio-field"><span>스마트스토어</span><select aria-label="스마트스토어" value={naverId} onChange={event => setSelectedNaver(event.target.value)}>{!naverValid && <option value="">스토어를 선택하세요</option>}{stores.data.map(store => <option key={store.assetId} value={store.assetId} disabled={store.requiresReauth}>{store.name || store.channelNo}{store.requiresReauth ? ' · 재연결 필요' : ''}</option>)}</select></label>{naverValid ? <Link className="studio-button studio-secondary" to={`/workspaces/${workspaceId}/naver/products/new?assetId=${naverId}&studioOutputId=${output.id}`}>상품 등록에 사용</Link> : <Link to={`/workspaces/${workspaceId}/connections/naver/assets`}>네이버 자산 편집</Link>}<p className="studio-note">{output.kind === 'DETAIL_PAGE' ? '이미지와 상세페이지 내용을 함께 가져옵니다.' : '생성한 이미지를 상품 이미지로 가져옵니다.'}</p></> : <p>저장된 스토어가 없습니다. <Link to={`/workspaces/${workspaceId}/connections/naver/assets`}>스마트스토어 연결</Link></p>)}</section>
-  </aside>
+  return <aside className="studio-panel"><h2>스마트스토어 상품에 사용</h2><p>스마트스토어를 선택하고 상품 등록 화면에서 나머지 정보를 입력하세요.</p><section className="studio-destination"><div className="studio-channel"><span className="studio-naver-mark">N</span><strong>네이버 스마트스토어</strong></div><StudioResourceState {...stores} />{stores.data && (stores.data.length ? <><label className="studio-field"><span>스마트스토어</span><select aria-label="스마트스토어" value={naverId} onChange={event => setSelectedNaver(event.target.value)}>{!naverValid && <option value="">스토어를 선택하세요</option>}{stores.data.map(store => <option key={store.assetId} value={store.assetId} disabled={store.requiresReauth}>{store.name || store.channelNo}{store.requiresReauth ? ' · 재연결 필요' : ''}</option>)}</select></label>{naverValid ? <Link className="studio-button studio-secondary" to={`/workspaces/${workspaceId}/naver/products/new?assetId=${naverId}&studioOutputId=${output.id}`}>상품 등록에 사용</Link> : <Link to={`/workspaces/${workspaceId}/connections/naver/assets`}>네이버 자산 편집</Link>}<p className="studio-note">이미지와 상세페이지 내용을 함께 가져옵니다.</p></> : <p>저장된 스토어가 없습니다. <Link to={`/workspaces/${workspaceId}/connections/naver/assets`}>스마트스토어 연결</Link></p>)}</section></aside>
+}
+function ImwebOutputDestination({ workspaceId, output }: { workspaceId: string; output: StudioOutput }) {
+  const load = useCallback((signal: AbortSignal) => listImwebStores(Number(workspaceId), signal), [workspaceId])
+  const stores = useImwebResource(workspaceId, load)
+  const [selected, setSelected] = useState('')
+  const available = (stores.data || []).filter(store => !store.requiresReauth)
+  const assetId = selected || String(available[0]?.assetId || '')
+  const valid = available.some(store => String(store.assetId) === assetId)
+  return <aside className="studio-panel"><h2>아임웹 상품에 사용</h2><p>스토어를 선택하고 상품 등록 화면에서 나머지 정보를 입력하세요.</p><section className="studio-destination"><div className="studio-channel"><strong>아임웹</strong></div><StudioResourceState {...stores} />{stores.data && (stores.data.length ? <><label className="studio-field"><span>아임웹 스토어</span><select aria-label="아임웹 스토어" value={assetId} onChange={event => setSelected(event.target.value)}>{!valid && <option value="">스토어를 선택하세요</option>}{stores.data.map(store => <option key={store.assetId} value={store.assetId} disabled={store.requiresReauth}>{store.name} · {store.currency}{store.requiresReauth ? ' · 재연결 필요' : ''}</option>)}</select></label>{valid ? <Link className="studio-button studio-secondary" to={`/workspaces/${workspaceId}/imweb/products/new?assetId=${assetId}&studioOutputId=${output.id}`}>아임웹 상품 등록에 사용</Link> : <Link to={`/workspaces/${workspaceId}/connections/imweb/assets`}>아임웹 자산 편집</Link>}<p className="studio-note">저장된 이미지와 상세페이지를 상품에 함께 적용합니다.</p></> : <p>저장된 스토어가 없습니다. <Link to={`/workspaces/${workspaceId}/connections/imweb/assets`}>아임웹 연결</Link></p>)}</section></aside>
 }

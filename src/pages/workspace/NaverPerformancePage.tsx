@@ -44,7 +44,7 @@ function NaverPerformanceContent({ workspaceId }: { workspaceId: number }) {
   return <DetailPage>
     <DetailHeader>
       <div><DetailEyebrow>네이버 / 스마트스토어</DetailEyebrow><DetailTitle>상품 및 판매 성과</DetailTitle><DetailLead>저장한 스마트스토어의 판매 중인 상품과 결제 기준 성과를 확인하세요.</DetailLead></div>
-      <EditLink to={assetsPath}>자산 편집 <span aria-hidden="true">↗</span></EditLink>
+      <HeaderActions>{canShowStore && !model.selected?.requiresReauth && !readSupportSession() && <DetailActionLink to={`/workspaces/${workspaceId}/naver/orders?assetId=${model.selected!.assetId}`}>주문·배송·환불 관리</DetailActionLink>}<EditLink to={assetsPath}>자산 편집 <span aria-hidden="true">↗</span></EditLink></HeaderActions>
     </DetailHeader>
     {savedNotice && <DetailAlert $success role="status">스마트스토어 채널을 저장했습니다. 상품과 판매 성과를 확인할 수 있어요.</DetailAlert>}
     {model.storesLoading ? <DetailPanel><DetailStatus role="status">저장된 스마트스토어를 불러오는 중…</DetailStatus></DetailPanel> : model.storesError ? <RequestError title="스마트스토어를 불러오지 못했습니다" message={model.storesError} onRetry={model.reloadStores} /> : !model.stores.length ? <DetailPanel><DetailEmpty>
@@ -114,3 +114,5 @@ const Presets = styled.div`display: flex; gap: 8px; flex-wrap: wrap;`
 const PresetButton = styled(DetailSecondaryButton)`min-height: 36px; padding: 7px 12px; font-size: 12px; &[aria-pressed=true] { border-color: #03a95b; background: #eaf8f1; color: #167853; }`
 const DateRow = styled.div`display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; @media(max-width: 420px) { display: grid; grid-template-columns: minmax(0, 1fr); }`
 const DateField = styled.label`display: grid; gap: 7px; min-width: 0; color: ${({ theme }) => theme.colors.textSecondary}; font-size: 11px; font-weight: 600; input { min-width: 0; width: 100%; min-height: 42px; max-width: 100%; font-size: 12px; }`
+
+const HeaderActions = styled.div`display: flex; align-items: center; flex-wrap: wrap; gap: 10px;`

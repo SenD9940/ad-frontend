@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useErrorModal } from '../components/common/useErrorModal'
+import { useModal } from '../components/common/useModal'
 import { ApiError } from '../api/http'
 import { listMetaAdPages, saveMetaAdPage } from '../api/metaAdPages'
 import type { MetaDiscoveredAsset, PlatformAssetResponse } from '../types/platform'
@@ -7,6 +9,7 @@ type RequestIdentity = { key: string; attempt: number }
 type PageState = { request: RequestIdentity; pages: MetaDiscoveredAsset[]; error: string }
 
 export function useMetaAdPages(workspaceId: number, assetId: number | undefined, enabled: boolean) {
+  const modal = useModal()
   const key = `${workspaceId}:${assetId}:${enabled}`
   const [state, setState] = useState<PageState | null>(null)
   const [choice, setChoice] = useState<{ request: RequestIdentity; id: string } | null>(null)
@@ -21,6 +24,7 @@ export function useMetaAdPages(workspaceId: number, assetId: number | undefined,
   const selectedId = choice?.request === request ? choice.id : ''
   const selectedPage = pages.find((page) => page.externalId === selectedId)
   const saving = savingRequest === request
+  useErrorModal(state?.request === request ? state.error : '', 'Facebook 페이지 조회 실패')
 
   useEffect(() => {
     const requestId = ++generation.current
@@ -60,8 +64,13 @@ export function useMetaAdPages(workspaceId: number, assetId: number | undefined,
       const page = assets.find((item) => item.platformType === 'FACEBOOK' && item.assetType === 'PAGE' && item.externalId === selectedPage.externalId)
       if (!page || !Number.isSafeInteger(page.id) || page.id <= 0) throw new ApiError('저장 응답에서 선택한 페이지를 확인하지 못했습니다. 다시 조회해 주세요.')
       onSaved(assets, page)
+      void modal.success({ title: 'Facebook 페이지 저장 완료', message: '선택한 페이지를 저장했습니다. 이 페이지로 광고를 등록할 수 있습니다.' })
     } catch (error: unknown) {
-      if (generation.current === requestId) setFailure({ request, message: error instanceof ApiError ? error.message : '페이지를 저장하지 못했습니다. 다시 시도해 주세요.' })
+      if (generation.current === requestId) {
+        const message = error instanceof ApiError ? error.message : '페이지를 저장하지 못했습니다. 다시 시도해 주세요.'
+        setFailure({ request, message })
+        void modal.error({ title: 'Facebook 페이지 저장 실패', message })
+      }
     } finally {
       pending.current.delete(request)
       setSavingRequest((current) => current === request ? null : current)

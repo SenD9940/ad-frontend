@@ -2,6 +2,8 @@ import { readSupportSession } from '../support/session'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ApiError } from '../api/http'
+import { useModal } from '../components/common/useModal'
+import { useErrorModal } from '../components/common/useErrorModal'
 import { getMe } from '../api/users'
 import { getMyWorkspace } from '../api/workspaces'
 import { connectNaver, connectNaverSelfTest, discoverNaverChannels, getNaverSelfTestAvailability, listNaverConnections, NaverSelfTestError, selectNaverChannels } from '../api/naverConnections'
@@ -9,6 +11,7 @@ import { NAVER_CHANNEL_SELECT_MAX } from '../types/platform'
 import type { NaverChannel, NaverConnectRequest, NaverSelfTestAvailability, PlatformConnectionResponse } from '../types/platform'
 
 export function useNaverConnections() {
+  const modal = useModal()
   const navigate = useNavigate()
   const { workspaceId: workspaceIdParam } = useParams()
   const workspaceId = Number(workspaceIdParam)
@@ -32,6 +35,9 @@ export function useNaverConnections() {
   const [savingId, setSavingId] = useState<number | null>(null)
   const [saveError, setSaveError] = useState('')
   const [saveMessage, setSaveMessage] = useState('')
+  useErrorModal(error, '네이버 연결 조회 실패')
+  useErrorModal(selfTestAvailabilityError, '스토어 연결 방식 확인 실패')
+  useErrorModal([...new Set(Object.values(channelErrors).filter(Boolean))].join('\n'), '스마트스토어 채널 조회 실패')
 
   const active = useRef(false)
   const lifecycle = useRef(0)
@@ -223,6 +229,7 @@ export function useNaverConnections() {
   }, [isValidWorkspaceId, reload, workspaceId])
 
   async function connect(request: NaverConnectRequest): Promise<boolean> {
+    const returnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null
     if (mutationBusy.current || loading || !active.current) return false
     if (!isValidWorkspaceId || !isOwner) {
       setConnectError('워크스페이스 소유자만 네이버 계정을 연결할 수 있습니다.')
@@ -252,11 +259,14 @@ export function useNaverConnections() {
       applyConnections([...connectionIndex.current.values()].filter((current) => current.id !== item.id).concat(item))
       setSelected((current) => ({ ...current, [item.id]: savedChannelNos(item) }))
       setConnectMessage(existing ? '네이버 계정의 인증 정보를 갱신했습니다. 사용할 채널을 확인해 주세요.' : '네이버 계정이 연결되었습니다. 사용할 스마트스토어 채널을 선택해 주세요.')
+      void modal.success({ title: '네이버 계정을 연결했습니다', message: '연결된 스마트스토어 채널을 선택하고 저장해 주세요.' })
       void requestChannels(item.id)
       return true
     } catch (caught) {
       if (!active.current || controller.signal.aborted || cycle !== lifecycle.current) return false
-      setConnectError(errorMessage(caught, '네이버 계정을 연결하지 못했습니다. 입력 정보를 확인하고 다시 시도해 주세요.'))
+      const message = errorMessage(caught, '네이버 계정을 연결하지 못했습니다. 입력 정보를 확인하고 다시 시도해 주세요.')
+      setConnectError(message)
+      void modal.error({ title: '네이버 연결 실패', message, returnFocus })
       if (isPermissionError(caught)) setIsOwner(false)
       return false
     } finally {
@@ -273,11 +283,16 @@ export function useNaverConnections() {
     if (await refreshConnections()) {
       setSelfTestNeedsCheck(false)
       setSelfTestError('현재 연결 목록을 확인했습니다. 연결된 계정과 채널을 확인해 주세요.')
+      void modal.info({ title: '연결 목록을 확인했습니다', message: '화면에 표시된 계정과 채널을 확인해 주세요.' })
       for (const item of connectionIndex.current.values()) if (!item.requiresReauth) void requestChannels(item.id)
-    } else if (active.current) setSelfTestError('연결 목록을 확인하지 못했습니다. 잠시 후 다시 확인해 주세요.')
+    } else if (active.current) {
+      const message = '연결 목록을 확인하지 못했습니다. 잠시 후 다시 확인해 주세요.'
+      setSelfTestError(message); void modal.error({ title: '연결 결과 확인 실패', message })
+    }
   }
 
   async function connectSelfTest(): Promise<void> {
+    const returnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null
     if (mutationBusy.current || loading || selfTestNeedsCheck || !active.current) return
     if (!isValidWorkspaceId || !isOwner || !selfTestAvailability?.available) {
       setSelfTestError('현재 워크스페이스에서는 내 스토어 테스트 연결을 사용할 수 없습니다.')
@@ -303,10 +318,13 @@ export function useNaverConnections() {
       applyConnections([...connectionIndex.current.values()].filter((current) => current.id !== item.id).concat(item))
       if (wasReauthRequired) setSelected((current) => ({ ...current, [item.id]: savedChannelNos(item) }))
       setConnectMessage('내 스토어가 연결되었습니다. 사용할 스마트스토어 채널을 확인하고 저장해 주세요.')
+      void modal.success({ title: '내 스토어를 연결했습니다', message: '사용할 스마트스토어 채널을 선택하고 저장해 주세요.' })
       void requestChannels(item.id)
     } catch (caught) {
       if (!active.current || controller.signal.aborted || cycle !== lifecycle.current) return
-      setSelfTestError(errorMessage(caught, '내 스토어를 연결하지 못했습니다. 잠시 후 다시 시도해 주세요.'))
+      const message = errorMessage(caught, '내 스토어를 연결하지 못했습니다. 잠시 후 다시 시도해 주세요.')
+      setSelfTestError(message)
+      void modal.error({ title: caught instanceof NaverSelfTestError && caught.outcomeUnknown ? '스토어 연결 결과 확인 필요' : '스토어 연결 실패', message, returnFocus })
       if (isPermissionError(caught)) setIsOwner(false)
       if (caught instanceof NaverSelfTestError && caught.outcomeUnknown) {
         setSelfTestNeedsCheck(true)
@@ -374,6 +392,7 @@ export function useNaverConnections() {
   }
 
   async function saveChannels(connectionId: number): Promise<void> {
+    const returnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null
     if (!canSelect(connectionId)) return
     const available = new Set((channels[connectionId] ?? []).map((channel) => channel.channelNo))
     const chosen = [...new Set(selected[connectionId] ?? [])].filter((no) => available.has(no))
@@ -413,11 +432,14 @@ export function useNaverConnections() {
       }
       const refreshed = await refreshConnections()
       if (!refreshed && active.current && !controller.signal.aborted && cycle === lifecycle.current) {
-        setSaveError('채널은 저장했지만 연결 목록을 갱신하지 못했습니다. 다시 조회해 주세요.')
+        const message = '채널은 저장했지만 연결 목록을 갱신하지 못했습니다. 다시 조회해 주세요.'
+        setSaveError(message); void modal.error({ title: '저장된 채널 확인 필요', message, returnFocus })
       }
     } catch (caught) {
       if (!active.current || controller.signal.aborted || cycle !== lifecycle.current) return
-      setSaveError(errorMessage(caught, '채널을 저장하지 못했습니다. 다시 시도해 주세요.'))
+      const message = errorMessage(caught, '채널을 저장하지 못했습니다. 다시 시도해 주세요.')
+      setSaveError(message)
+      void modal.error({ title: '채널 저장 결과 확인', message, returnFocus })
       if (isPermissionError(caught)) setIsOwner(false)
       await refreshConnections()
       // A stale selection or changed credentials requires a fresh discovery. Leave

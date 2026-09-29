@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Navigate, useLocation, useParams } from 'react-router-dom'
 import { ApiError } from '../../api/http'
 import { listSavedMetaAdAccounts } from '../../api/metaAds'
+import { useErrorModal } from '../../components/common/useErrorModal'
 import {
   DetailActionLink, DetailAlert, DetailEmpty, DetailPage, DetailPanel,
   DetailSecondaryButton, DetailStatus,
@@ -15,6 +16,7 @@ export default function MetaHomePage() {
   const [result, setResult] = useState<{ hasAdAccounts: boolean | null; error: string }>({ hasAdAccounts: null, error: '' })
   const justConnected = Boolean((location.state as { metaConnected?: boolean } | null)?.metaConnected)
   const assetsPath = `/workspaces/${workspaceId}/connections/meta/assets`
+  useErrorModal(result.error, 'Meta 자산 조회 실패', !justConnected)
 
   useEffect(() => {
     if (justConnected) return

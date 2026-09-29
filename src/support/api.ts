@@ -1,3 +1,4 @@
+import { useErrorModal } from '../components/common/useErrorModal'
 import { useCallback, useEffect, useState } from 'react'
 import http from '../api/http'
 
@@ -24,6 +25,7 @@ export function useSupportResource<T>(path: string) {
   const key = `${path}|${revision}`
   const [state, setState] = useState<{ key: string; path: string; data?: T; error?: string }>({ key: '', path: '' })
   const reload = useCallback(() => setRevision(value => value + 1), [])
+  useErrorModal(state.key === key ? state.error : undefined, '기술 지원 정보를 불러오지 못했습니다')
   useEffect(() => {
     const controller = new AbortController()
     http.get<{ body: T }>(path, { signal: controller.signal }).then(({ data }) => {

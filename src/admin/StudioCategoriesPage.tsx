@@ -1,3 +1,5 @@
+import { useModal } from '../components/common/useModal'
+import { useErrorModal } from '../components/common/useErrorModal'
 import { useRef, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { adminDelete, adminWrite } from './api'
@@ -12,6 +14,8 @@ export default function StudioCategoriesPage() {
   const [name, setName] = useState('')
   const [pending, setPending] = useState(false)
   const [error, setError] = useState('')
+  useErrorModal(error, '카테고리 등록 확인')
+  const modal = useModal()
   const [message, setMessage] = useState('')
   const inFlight = useRef(false)
   async function create(event: FormEvent<HTMLFormElement>) {
@@ -21,6 +25,7 @@ export default function StudioCategoriesPage() {
     try {
       const category = await adminWrite<StudioCategory>(studioCategoriesPath, { name: name.trim() })
       setName(''); setMessage(`“${category.name}” 카테고리를 등록했습니다.`); categories.reload()
+      void modal.success({ title: '카테고리 등록 완료', message: `“${category.name}” 카테고리를 등록했습니다.` })
     } catch (caught) { setError(caught instanceof Error ? caught.message : '카테고리를 등록하지 못했습니다.') }
     finally { inFlight.current = false; setPending(false) }
   }
@@ -36,6 +41,9 @@ function CategoryRow({ category, onChange }: { category: StudioCategory; onChang
   const [name, setName] = useState(category.name)
   const [pending, setPending] = useState(false)
   const [error, setError] = useState('')
+  const modal = useModal()
+  useErrorModal(error, '카테고리를 변경하지 못했습니다')
+  const confirming = useRef(false)
   const inFlight = useRef(false)
   async function mutate(remove = false) {
     if (inFlight.current || (!remove && !name.trim())) return
@@ -47,8 +55,16 @@ function CategoryRow({ category, onChange }: { category: StudioCategory; onChang
     } catch (caught) { setError(caught instanceof Error ? caught.message : '카테고리를 변경하지 못했습니다.'); if (remove) setDeleting(false) }
     finally { inFlight.current = false; setPending(false) }
   }
+  async function remove() {
+    if (confirming.current || inFlight.current) return
+    confirming.current = true; setDeleting(true); setError('')
+    try {
+      const accepted = await modal.confirm({ title: '카테고리 삭제', message: `“${category.name}” 카테고리를 삭제할까요? 샘플에서 사용 중인 카테고리는 삭제할 수 없습니다.`, confirmLabel: '카테고리 삭제', danger: true })
+      if (accepted) await mutate(true)
+    } finally { confirming.current = false; setDeleting(false) }
+  }
   return <div className="studio-category-row">
-    <div className="studio-category-row-main">{editing ? <form className="studio-category-rename" onSubmit={event => { event.preventDefault(); void mutate() }}><input aria-label={`${category.name} 새 이름`} value={name} onChange={event => setName(event.target.value)} required maxLength={80} disabled={pending} autoFocus /><button className="studio-button" disabled={pending || !name.trim()}>{pending ? '저장 중…' : '이름 저장'}</button><button className="studio-button studio-secondary" type="button" disabled={pending} onClick={() => { setEditing(false); setName(category.name); setError('') }}>취소</button></form> : <><strong>{category.name}</strong><div className="studio-actions"><button className="studio-button studio-secondary" disabled={pending || deleting} onClick={() => { setEditing(true); setError('') }}>이름 변경<span className="studio-sr-only">: {category.name}</span></button><button className="studio-button studio-secondary" disabled={pending || deleting} onClick={() => { setDeleting(true); setError('') }}>삭제<span className="studio-sr-only">: {category.name}</span></button></div></>}</div>
-    {deleting && <div className="studio-category-confirm" role="group" aria-label={`${category.name} 삭제 확인`}><p>“{category.name}” 카테고리를 삭제할까요?</p><div className="studio-actions"><button className="studio-button studio-danger" disabled={pending} onClick={() => void mutate(true)}>{pending ? '삭제 중…' : '삭제 확인'}</button><button className="studio-button studio-secondary" disabled={pending} onClick={() => setDeleting(false)}>취소</button></div></div>}{error && <StudioNotice error>{error}</StudioNotice>}
+    <div className="studio-category-row-main">{editing ? <form className="studio-category-rename" onSubmit={event => { event.preventDefault(); void mutate() }}><input aria-label={`${category.name} 새 이름`} value={name} onChange={event => setName(event.target.value)} required maxLength={80} disabled={pending} autoFocus /><button className="studio-button" disabled={pending || !name.trim()}>{pending ? '저장 중…' : '이름 저장'}</button><button className="studio-button studio-secondary" type="button" disabled={pending} onClick={() => { setEditing(false); setName(category.name); setError('') }}>취소</button></form> : <><strong>{category.name}</strong><div className="studio-actions"><button className="studio-button studio-secondary" disabled={pending || deleting} onClick={() => { setEditing(true); setError('') }}>이름 변경<span className="studio-sr-only">: {category.name}</span></button><button className="studio-button studio-secondary" disabled={pending || deleting} onClick={() => void remove()}>삭제<span className="studio-sr-only">: {category.name}</span></button></div></>}</div>
+    {error && <StudioNotice error>{error}</StudioNotice>}
   </div>
 }

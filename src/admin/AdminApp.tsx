@@ -1,4 +1,5 @@
-import { Fragment, useEffect, useState } from 'react'
+import { useErrorModal } from '../components/common/useErrorModal'
+import { Fragment, useEffect, useRef, useState } from 'react'
 import { Link, NavLink, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { adminGet, adminWrite } from './api'
 import { ADMIN_SESSION_EVENT, clearAdminSession, readAdminSession, saveAdminSession, type AdminSession } from './session'
@@ -18,6 +19,7 @@ export default function AdminApp() {
   const [session, setSession] = useState(readAdminSession)
   const [verified, setVerified] = useState('')
   const [error, setError] = useState('')
+  useErrorModal(error, '운영자 인증 확인')
   const [attempt, setAttempt] = useState(0)
   const [pending, setPending] = useState(false)
   const location = useLocation()
@@ -44,6 +46,10 @@ export default function AdminApp() {
 }
 function Login() {
   const [pending, setPending] = useState(false)
+  const pendingRef = useRef(false)
+  const active = useRef(true)
+  useEffect(() => { active.current = true; return () => { active.current = false } }, [])
   const [error, setError] = useState('')
-  return <div className="oa-login"><aside className="oa-login-aside"><span>UNITED AD / OPERATIONS</span><h1>서비스의 모든 연결,<br />운영의 한 화면에서.</h1><p>회원과 워크스페이스를 관리하고,<br />고객에게 필요한 기술 지원을 제공하세요.</p></aside><section className="oa-login-form"><form onSubmit={async event => { event.preventDefault(); const values = new FormData(event.currentTarget); setPending(true); setError(''); try { const result = await adminWrite<AdminSession>('/auth/login', { email: String(values.get('email')).trim(), password: values.get('password') }); saveAdminSession(result) } catch (caught) { setError(caught instanceof Error ? caught.message : '로그인에 실패했습니다.') } finally { setPending(false) } }}><p className="oa-eyebrow">OPERATIONS CONSOLE</p><h2>운영자 로그인</h2><p className="oa-muted">관리자 권한이 있는 계정으로 로그인해 주세요.</p><label className="oa-field"><span>이메일</span><input name="email" type="email" autoComplete="username" required maxLength={254} placeholder="admin@company.com" /></label><label className="oa-field"><span>비밀번호</span><input name="password" type="password" autoComplete="current-password" required maxLength={200} /></label>{error && <Notice error>{error}</Notice>}<button className="oa-button" disabled={pending}>{pending ? '확인 중…' : '운영 콘솔 로그인'}</button><p className="oa-muted" style={{ marginTop: 24 }}><Link to="/login">서비스 회원 로그인으로</Link></p></form></section></div>
+  useErrorModal(error, '로그인하지 못했습니다')
+  return <div className="oa-login"><aside className="oa-login-aside"><span>UNITED AD / OPERATIONS</span><h1>서비스의 모든 연결,<br />운영의 한 화면에서.</h1><p>회원과 워크스페이스를 관리하고,<br />고객에게 필요한 기술 지원을 제공하세요.</p></aside><section className="oa-login-form"><form onSubmit={async event => { event.preventDefault(); if (pendingRef.current) return; pendingRef.current = true; const values = new FormData(event.currentTarget); setPending(true); setError(''); try { const result = await adminWrite<AdminSession>('/auth/login', { email: String(values.get('email')).trim(), password: values.get('password') }); if (active.current) saveAdminSession(result) } catch (caught) { if (active.current) setError(caught instanceof Error ? caught.message : '로그인에 실패했습니다.') } finally { pendingRef.current = false; if (active.current) setPending(false) } }}><p className="oa-eyebrow">OPERATIONS CONSOLE</p><h2>운영자 로그인</h2><p className="oa-muted">관리자 권한이 있는 계정으로 로그인해 주세요.</p><label className="oa-field"><span>이메일</span><input name="email" type="email" autoComplete="username" required maxLength={254} placeholder="admin@company.com" /></label><label className="oa-field"><span>비밀번호</span><input name="password" type="password" autoComplete="current-password" required maxLength={200} /></label>{error && <Notice error>{error}</Notice>}<button className="oa-button" disabled={pending}>{pending ? '확인 중…' : '운영 콘솔 로그인'}</button><p className="oa-muted" style={{ marginTop: 24 }}><Link to="/login">서비스 회원 로그인으로</Link></p></form></section></div>
 }

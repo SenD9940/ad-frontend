@@ -1,9 +1,14 @@
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import styled from 'styled-components'
 import { useAuth } from '../../auth/AuthContext'
 
 export default function Header() {
   const { isLoggedIn, clearSession } = useAuth()
+  const location = useLocation()
+  const from: unknown = location.state?.from
+  const authState = (location.pathname === '/login' || location.pathname === '/signup')
+    && typeof from === 'string' && from.startsWith('/') && !from.startsWith('//') && !/[\\\r\n]/.test(from)
+    ? { from } : undefined
 
   return (
     <Container>
@@ -21,9 +26,9 @@ export default function Header() {
           {isLoggedIn ? (
             <LoginButton type="button" onClick={clearSession}>로그아웃</LoginButton>
           ) : (
-            <LoginLink to="/login">로그인</LoginLink>
+            <LoginLink to="/login" state={authState}>로그인</LoginLink>
           )}
-          <StartLink to={isLoggedIn ? '/workspaces' : '/signup'}>
+          <StartLink to={isLoggedIn ? '/workspaces' : '/signup'} state={isLoggedIn ? undefined : authState}>
             {isLoggedIn ? '워크스페이스' : '시작하기'} <span aria-hidden="true">↗</span>
           </StartLink>
         </Actions>

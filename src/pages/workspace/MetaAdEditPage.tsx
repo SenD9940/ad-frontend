@@ -4,6 +4,8 @@ import styled from 'styled-components'
 import { ApiError } from '../../api/http'
 import { listSavedMetaAdAccounts } from '../../api/metaAds'
 import { MetaAdUpdateError, updateMetaAdObject } from '../../api/metaAdUpdates'
+import Modal from '../../components/common/Modal'
+import { useErrorModal } from '../../components/common/useErrorModal'
 import type { SavedMetaAdAccount } from '../../types/metaAds'
 import type { MetaAdObjectType, MetaAdUpdatePatch, MetaAdUpdateStatus } from '../../types/metaAdUpdate'
 import {
@@ -41,6 +43,8 @@ function EditWorkspaceAd({ workspaceId, initialAccount, initialType, initialObje
   const [busy, setBusy] = useState(false)
   const [success, setSuccess] = useState(false)
   const [failure, setFailure] = useState<Failure | null>(null)
+  useErrorModal(loadError, '광고 계정 조회 실패')
+  useErrorModal(failure?.message, failure?.unknown ? '광고 수정 결과 확인 필요' : '광고 수정 실패')
   const [checkedResult, setCheckedResult] = useState(false)
   const pending = useRef(false)
   const active = useRef(true)
@@ -109,7 +113,6 @@ function EditWorkspaceAd({ workspaceId, initialAccount, initialType, initialObje
     setReview({ assetId: selected.assetId, accountName: selected.name, accountId: selected.externalId, type: objectType, objectId: id, patch })
     setFailure(null)
     setCheckedResult(false)
-    focusSummary()
   }
 
   async function applyChanges() {
@@ -123,7 +126,7 @@ function EditWorkspaceAd({ workspaceId, initialAccount, initialType, initialObje
       if (active.current) setFailure({ message: error instanceof ApiError ? error.message : '변경 결과를 확인하지 못했습니다. Meta 광고 관리자에서 확인해 주세요.', unknown: error instanceof MetaAdUpdateError ? error.outcomeUnknown : true })
     } finally {
       pending.current = false
-      if (active.current) { setBusy(false); focusSummary() }
+      if (active.current) { setBusy(false); requestAnimationFrame(() => { if (active.current) focusSummary() }) }
     }
   }
 
@@ -139,27 +142,18 @@ function EditWorkspaceAd({ workspaceId, initialAccount, initialType, initialObje
       <div><DetailEyebrow>Meta / 광고 수정</DetailEyebrow><DetailTitle ref={title} tabIndex={-1}>Meta 광고 수정</DetailTitle><DetailLead>광고·광고세트·캠페인에서 바꿀 항목을 선택하고 변경 내용을 확인하세요.</DetailLead></div>
       {!busy && <BackLink to={performancePath}>성과로 돌아가기</BackLink>}
     </DetailHeader>
-    {loading ? <DetailPanel><DetailStatus role="status">저장된 광고 계정을 불러오는 중…</DetailStatus></DetailPanel> : loadError ? <DetailPanel><DetailEmpty><DetailAlert role="alert">{loadError}</DetailAlert><DetailSecondaryButton type="button" onClick={() => { setLoading(true); setLoadError(''); setAttempt((current) => current + 1) }}>광고 계정 다시 조회</DetailSecondaryButton></DetailEmpty></DetailPanel> : accounts.length === 0 ? <DetailPanel><DetailEmpty><h2>광고 계정을 먼저 저장해 주세요</h2><p>Meta 연결에서 사용할 광고 계정을 저장하면 수정할 수 있습니다.</p><DetailActionLink to={assetsPath}>자산 편집</DetailActionLink></DetailEmpty></DetailPanel> : review ? <>
-      <DetailPanel><PanelHeading><h2>{success ? '변경 요청 완료' : failure?.unknown ? '변경 결과 확인 필요' : failure ? '변경 요청 실패' : '변경 내용 확인'}</h2><DetailBadge $tone={success ? 'success' : failure ? 'warning' : 'primary'}>{LABELS[review.type]} 수정</DetailBadge></PanelHeading><StackBody>
+    {loading ? <DetailPanel><DetailStatus role="status">저장된 광고 계정을 불러오는 중…</DetailStatus></DetailPanel> : loadError ? <DetailPanel><DetailEmpty><DetailAlert role="alert">{loadError}</DetailAlert><DetailSecondaryButton type="button" onClick={() => { setLoading(true); setLoadError(''); setAttempt((current) => current + 1) }}>광고 계정 다시 조회</DetailSecondaryButton></DetailEmpty></DetailPanel> : accounts.length === 0 ? <DetailPanel><DetailEmpty><h2>광고 계정을 먼저 저장해 주세요</h2><p>Meta 연결에서 사용할 광고 계정을 저장하면 수정할 수 있습니다.</p><DetailActionLink to={assetsPath}>자산 편집</DetailActionLink></DetailEmpty></DetailPanel> : review && (success || failure) ? <>
+      <DetailPanel><PanelHeading><h2>{success ? '변경 요청 완료' : failure?.unknown ? '변경 결과 확인 필요' : '변경 요청 실패'}</h2><DetailBadge $tone={success ? 'success' : 'warning'}>{LABELS[review.type]} 수정</DetailBadge></PanelHeading><StackBody>
         {success ? <DetailAlert $success role="status">Meta가 수정 요청에 성공으로 응답했습니다. 실제 게재는 심사와 광고·상위 광고세트·캠페인의 상태에 따라 결정됩니다.</DetailAlert> : failure ? <DetailAlert role="alert">{failure.message}</DetailAlert> : <DetailHint>아래에 표시된 항목만 변경합니다. 선택하지 않은 항목은 기존 값을 유지합니다.</DetailHint>}
-        <ReviewList>
-          <div><dt>광고 계정</dt><dd>{review.accountName}<small>{review.accountId}</small></dd></div>
-          <div><dt>수정 대상</dt><dd>{LABELS[review.type]} · <code>{review.objectId}</code></dd></div>
-          {review.patch.name !== undefined ? <div><dt>변경할 이름</dt><dd>{review.patch.name}</dd></div> : null}
-          {review.patch.status ? <div><dt>변경할 상태</dt><dd>{review.patch.status === 'ACTIVE' ? '활성 (ACTIVE)' : '일시정지 (PAUSED)'}</dd></div> : null}
-          {review.patch.dailyBudget !== undefined ? <div><dt>변경할 일 예산</dt><dd>{review.patch.dailyBudget?.toLocaleString('ko-KR')} (광고 계정 통화의 Meta 금액 단위)</dd></div> : null}
-        </ReviewList>
+        <ReviewChanges review={review} />
         {review.patch.status && !success ? <ScopeNote type={review.type} activate={review.patch.status === 'ACTIVE'} /> : null}
-        {review.patch.dailyBudget !== undefined && !success ? <BudgetNote type={review.type} /> : null}
+        {review.patch.dailyBudget != null && !success ? <BudgetNote type={review.type} /> : null}
         {failure?.unknown ? <>
           <DetailHint>오류 응답이 와도 상태나 예산이 변경되었을 수 있습니다. Meta 광고 관리자에서 결과를 확인한 뒤 다음 변경을 진행해 주세요.</DetailHint>
           <ExternalLink href="https://adsmanager.facebook.com/" target="_blank" rel="noopener noreferrer">Meta 광고 관리자에서 결과 확인 ↗</ExternalLink>
           <CheckLabel><input type="checkbox" checked={checkedResult} onChange={(event) => setCheckedResult(event.target.checked)} />Meta 광고 관리자에서 변경 결과를 확인했습니다.</CheckLabel>
           <DetailSecondaryButton type="button" disabled={!checkedResult} onClick={returnToInputs}>입력으로 돌아가기</DetailSecondaryButton>
-        </> : success ? <Actions><DetailActionLink to={performancePath}>캠페인·성과 확인</DetailActionLink><ExternalLink href="https://adsmanager.facebook.com/" target="_blank" rel="noopener noreferrer">Meta 광고 관리자 열기 ↗</ExternalLink><DetailSecondaryButton type="button" onClick={() => { setSuccess(false); setReview(null); setChanges(emptyChanges()) }}>다른 항목 수정</DetailSecondaryButton></Actions> : <>
-          {busy ? <DetailStatus role="status">변경 요청을 처리하는 중…</DetailStatus> : null}
-          <Actions><DetailSecondaryButton type="button" disabled={busy} onClick={returnToInputs}>입력 수정</DetailSecondaryButton><DetailPrimaryButton type="button" disabled={busy || Boolean(failure)} onClick={() => void applyChanges()}>{busy ? '적용 중…' : review.patch.status === 'ACTIVE' ? '활성 상태로 변경' : '변경 적용'}</DetailPrimaryButton></Actions>
-        </>}
+        </> : success ? <Actions><DetailActionLink to={performancePath}>캠페인·성과 확인</DetailActionLink><ExternalLink href="https://adsmanager.facebook.com/" target="_blank" rel="noopener noreferrer">Meta 광고 관리자 열기 ↗</ExternalLink><DetailSecondaryButton type="button" onClick={() => { setSuccess(false); setReview(null); setChanges(emptyChanges()) }}>다른 항목 수정</DetailSecondaryButton></Actions> : <DetailSecondaryButton type="button" onClick={returnToInputs}>입력 수정</DetailSecondaryButton>}
       </StackBody></DetailPanel>
     </> : <Form onSubmit={prepare} noValidate>
       <DetailPanel><PanelHeading><h2>수정 대상</h2><DetailBadge>한 번에 한 대상</DetailBadge></PanelHeading><StackBody>
@@ -185,9 +179,27 @@ function EditWorkspaceAd({ workspaceId, initialAccount, initialType, initialObje
         </ChangeFields>
         <ErrorText id="changes" message={errors.changes} />
       </StackBody></DetailPanel>
-      <SubmitBar><DetailHint>다음 화면에서 대상과 변경 내용을 확인합니다.</DetailHint><DetailPrimaryButton type="submit" disabled={!selected || selected.requiresReauth}>변경 내용 확인</DetailPrimaryButton></SubmitBar>
+      <SubmitBar><DetailHint>적용 전에 대상과 변경 내용을 확인합니다.</DetailHint><DetailPrimaryButton type="submit" disabled={!selected || selected.requiresReauth || busy}>변경 내용 확인</DetailPrimaryButton></SubmitBar>
     </Form>}
+    <Modal open={Boolean(review && !success && !failure)} title="변경 내용 확인" variant="confirm" size="lg" busy={busy} onClose={returnToInputs} description="아래에 표시된 항목만 변경합니다. 선택하지 않은 항목은 기존 값을 유지합니다." footer={<Actions><DetailSecondaryButton type="button" disabled={busy} onClick={returnToInputs}>입력 수정</DetailSecondaryButton><DetailPrimaryButton type="button" disabled={busy} onClick={() => void applyChanges()}>{busy ? '적용 중…' : review?.patch.status === 'ACTIVE' ? '활성 상태로 변경' : '변경 적용'}</DetailPrimaryButton></Actions>}>
+      {review ? <ReviewBody>
+        <ReviewChanges review={review} />
+        {review.patch.status ? <ScopeNote type={review.type} activate={review.patch.status === 'ACTIVE'} /> : null}
+        {review.patch.dailyBudget != null ? <BudgetNote type={review.type} /> : null}
+        {busy ? <DetailStatus role="status">변경 요청을 처리하는 중…</DetailStatus> : null}
+      </ReviewBody> : null}
+    </Modal>
   </DetailPage>
+}
+
+function ReviewChanges({ review }: { review: Review }) {
+  return <ReviewList>
+    <div><dt>광고 계정</dt><dd>{review.accountName}<small>{review.accountId}</small></dd></div>
+    <div><dt>수정 대상</dt><dd>{LABELS[review.type]} · <code>{review.objectId}</code></dd></div>
+    {review.patch.name !== undefined ? <div><dt>변경할 이름</dt><dd>{review.patch.name}</dd></div> : null}
+    {review.patch.status ? <div><dt>변경할 상태</dt><dd>{review.patch.status === 'ACTIVE' ? '활성 (ACTIVE)' : '일시정지 (PAUSED)'}</dd></div> : null}
+    {review.patch.dailyBudget != null ? <div><dt>변경할 일 예산</dt><dd>{review.patch.dailyBudget.toLocaleString('ko-KR')} (광고 계정 통화의 Meta 금액 단위)</dd></div> : null}
+  </ReviewList>
 }
 
 function ScopeNote({ type, activate }: { type: MetaAdObjectType; activate: boolean }) {
@@ -203,6 +215,7 @@ function ErrorText({ id, message }: { id: string; message?: string }) {
 }
 
 const Form = styled.form`display:grid;gap:1.5rem;min-width:0;`
+const ReviewBody = styled.div`display:grid;gap:1rem;min-width:0;`
 const StackBody = styled(DetailPanelBody)`display:grid;gap:1rem;min-width:0;`
 const Field = styled.label`display:grid;gap:.6rem;font-size:.8125rem;font-weight:600;min-width:0;input,select{width:100%;min-width:0;font-size:.8125rem;}`
 const FieldGrid = styled.div`display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr);gap:1rem;@media(max-width:600px){grid-template-columns:minmax(0,1fr);}`

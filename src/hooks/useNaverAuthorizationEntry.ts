@@ -1,3 +1,5 @@
+import { useModal } from '../components/common/useModal'
+import { useErrorModal } from '../components/common/useErrorModal'
 import { readSupportSession } from '../support/session'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -7,10 +9,12 @@ import type { NaverCapabilities } from '../types/naverAuthorization'
 import { launchNaverWindow, naverAuthorizationPath, openNaverWindow } from '../pages/workspace/naverAuthorizationWindow'
 
 export function useNaverAuthorizationEntry(workspaceId: number, isOwner: boolean) {
+  const modal = useModal()
   const navigate = useNavigate()
   const [capabilities, setCapabilities] = useState<NaverCapabilities | null>(null)
   const [loading, setLoading] = useState(() => !readSupportSession())
   const [error, setError] = useState('')
+  useErrorModal(error, '네이버 연결 정보 조회 실패')
   const [startError, setStartError] = useState('')
   const [starting, setStarting] = useState(false)
   const [version, setVersion] = useState(0)
@@ -32,7 +36,7 @@ export function useNaverAuthorizationEntry(workspaceId: number, isOwner: boolean
   async function start(reconnectConnectionId?: number, marketplaceReceipt?: string) {
     if (!isOwner || !capabilities?.ready || startingRef.current) return
     const popup = openNaverWindow()
-    if (!popup) { setStartError('팝업이 차단되었습니다. 이 사이트의 팝업을 허용하고 다시 눌러 주세요.'); return }
+    if (!popup) { const message = '팝업이 차단되었습니다. 이 사이트의 팝업을 허용하고 다시 눌러 주세요.'; setStartError(message); void modal.info({ title: '팝업 허용이 필요합니다', message }); return }
     startingRef.current = true
     setStarting(true)
     setStartError('')
@@ -45,7 +49,11 @@ export function useNaverAuthorizationEntry(workspaceId: number, isOwner: boolean
       navigate(naverAuthorizationPath(state.attemptId))
     } catch (caught) {
       popup.close()
-      if (active.current) setStartError(caught instanceof ApiError ? caught.message : '네이버 연결을 시작하지 못했습니다.')
+      if (active.current) {
+        const message = caught instanceof ApiError ? caught.message : '네이버 연결을 시작하지 못했습니다.'
+        setStartError(message)
+        void modal.error({ title: '네이버 연결 실패', message })
+      }
     } finally {
       startingRef.current = false
       if (active.current) setStarting(false)

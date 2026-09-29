@@ -1,3 +1,4 @@
+import { useModal } from '../components/common/useModal'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import http, { ApiError } from '../api/http'
@@ -52,6 +53,7 @@ function WorkspaceSupport({ workspaceId }: { workspaceId: string }) {
 type TicketProps = { ticket: SupportTicket; now: number; offerEnabled: boolean; paymentPending: boolean; startPayment: (ticketId: number) => Promise<void>; reload: () => void }
 
 function CustomerTicket({ ticket: t, now, offerEnabled, paymentPending, startPayment, reload }: TicketProps) {
+  const modal = useModal()
   const [consent, setConsent] = useState(false)
   const [checking, setChecking] = useState(false)
   const checkingRef = useRef(false)
@@ -70,13 +72,17 @@ function CustomerTicket({ ticket: t, now, offerEnabled, paymentPending, startPay
     try {
       const state = await getPaymentState(t.workspaceId, t.id)
       setPayment(state); setPaymentNote(paymentMessage(state)); setRecoveryRequired(false)
+      void modal.info({ title: '결제 상태 확인', message: paymentMessage(state) })
       if (state.status === 'PAID' && t.paymentStatus !== 'PAID') reload()
     } catch (caught) {
       if (caught instanceof ApiError && caught.status === 404) {
         setPayment(null); setRecoveryRequired(false); setPaymentNote('아직 생성된 결제 주문이 없습니다. 결제하기 버튼으로 진행해 주세요.')
+        void modal.info({ title: '결제 주문 안내', message: '아직 생성된 결제 주문이 없습니다. 결제하기 버튼으로 진행해 주세요.' })
       } else {
         setRecoveryRequired(true)
-        setPaymentNote(`${caught instanceof Error ? caught.message : '결제 상태를 조회하지 못했습니다.'} 중복 결제하지 말고 결제 상태를 다시 확인해 주세요.`)
+        const message = `${caught instanceof Error ? caught.message : '결제 상태를 조회하지 못했습니다.'} 중복 결제하지 말고 결제 상태를 다시 확인해 주세요.`
+        setPaymentNote(message)
+        void modal.error({ title: '결제 상태 확인 필요', message })
       }
     } finally { checkingRef.current = false; setChecking(false) }
   }
@@ -87,7 +93,7 @@ function CustomerTicket({ ticket: t, now, offerEnabled, paymentPending, startPay
     <p className="oa-note" style={{ marginTop: 20, whiteSpace: 'pre-wrap' }}>{t.description}</p>
     {customerRequest ? <>
       <p className="oa-muted" style={{ marginTop: 16 }}>신청할 때 선택한 접근 범위에 동의했습니다. 결제가 확인되면 운영자가 동의 기간 내에 지원을 시작할 수 있습니다.</p>
-      {t.termsSnapshot && <details className="support-terms"><summary>신청 시 동의한 이용 조건</summary><p className="oa-muted">약관 버전: {t.termsVersion}</p><div className="support-terms-text">{t.termsSnapshot}</div></details>}
+      {t.termsSnapshot && <button type="button" className="oa-button oa-secondary" onClick={() => void modal.info({ title: '신청 시 동의한 이용 조건', message: <><p>약관 버전: {t.termsVersion}</p><div className="support-terms-text">{t.termsSnapshot}</div></> })}>신청 시 동의한 이용 조건</button>}
       {t.paymentStatus === 'PAID' && !closed && consentValid && <Notice>{t.status === 'IN_PROGRESS' ? '운영자가 기술 지원을 진행 중입니다.' : '결제가 완료되었습니다. 운영자가 요청 내용을 확인하고 지원을 준비합니다.'}</Notice>}
       {t.status === 'CANCELLED' && t.paymentStatus === 'PAID' && <Notice>지원 요청이 취소되었습니다. 운영자가 작업 내역과 환불 여부를 확인합니다. 요청 취소만으로 결제가 자동 환불되지는 않습니다.</Notice>}
       {!closed && !consentValid && <Notice>접근 동의 기간이 만료되어 운영자가 추가로 접속할 수 없습니다. 지원이 필요하면 새 요청을 신청해 주세요.</Notice>}

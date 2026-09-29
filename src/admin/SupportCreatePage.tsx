@@ -1,3 +1,4 @@
+import { useErrorModal } from '../components/common/useErrorModal'
 import { useRef, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { adminGet, adminWrite } from './api'
@@ -25,6 +26,8 @@ function SupportCreateForm({ initialWorkspaceId, initialOwnerId }: { initialWork
   const [workspaceId, setWorkspaceId] = useState(initialWorkspaceId)
   const selected = useSupportWorkspace(workspaceId)
   const [error, setError] = useState('')
+  const [remoteError, setRemoteError] = useState(false)
+  useErrorModal(error, '기술 지원 요청을 등록하지 못했습니다', remoteError)
   const [pending, setPending] = useState(false)
   const pendingRef = useRef(false)
 
@@ -32,7 +35,7 @@ function SupportCreateForm({ initialWorkspaceId, initialOwnerId }: { initialWork
     event.preventDefault()
     if (pendingRef.current) return
     const selection = selected.data
-    if (!selection) { setError('지원할 워크스페이스를 선택하고 고객 정보가 조회될 때까지 기다려 주세요.'); return }
+    if (!selection) { setRemoteError(false); setError('지원할 워크스페이스를 선택하고 고객 정보가 조회될 때까지 기다려 주세요.'); return }
     const values = new FormData(event.currentTarget)
     pendingRef.current = true
     setPending(true); setError('')
@@ -52,6 +55,7 @@ function SupportCreateForm({ initialWorkspaceId, initialOwnerId }: { initialWork
       })
       navigate(`/admin/support/${ticket.id}`, { replace: true })
     } catch (caught) {
+      setRemoteError(true)
       setError(caught instanceof Error ? caught.message : '등록하지 못했습니다.')
       selected.reload()
     } finally {

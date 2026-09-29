@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import styled from 'styled-components'
+import Modal from '../../components/common/Modal'
+import { useErrorModal } from '../../components/common/useErrorModal'
+import { useModal } from '../../components/common/useModal'
 import { ApiError } from '../../api/http'
 import { createMetaAd, MetaAdCreationError } from '../../api/metaAdCreation'
 import { uploadMetaAdImage } from '../../api/metaAdImages'
@@ -25,11 +28,13 @@ type ReviewedAd = { assetId: number; accountName: string; pageName: string; prof
 type ImageContext = { key: string }
 
 export default function MetaAdCreatePage() {
+  const modal = useModal()
   const { workspaceId } = useParams()
   const [params, setParams] = useSearchParams()
   const [connections, setConnections] = useState<PlatformConnectionResponse[]>([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
+  useErrorModal(loadError, '광고 자산 조회 실패')
   const [attempt, setAttempt] = useState(0)
   const [values, setValues] = useState(emptyMetaAdForm)
   const [errors, setErrors] = useState<MetaAdFormErrors>({})
@@ -104,6 +109,7 @@ export default function MetaAdCreatePage() {
   }
 
   async function applyStudioImage(output: StudioImportOutput, signal: AbortSignal) {
+    if (output.kind !== 'AD_IMAGE') throw new Error('Meta 광고에는 광고 소재 이미지만 적용할 수 있습니다.')
     if (!selected || selected.connection.requiresReauth || imageUploading || pending.current) return
     setUploadingContext(imageContext)
     try {
@@ -140,10 +146,15 @@ export default function MetaAdCreatePage() {
       requestAnimationFrame(() => document.getElementById(firstError === 'pageAssetId' ? 'ad-create-setup-page' : firstError === 'imageKey' ? 'ad-create-image-file' : `ad-create-${firstError}`)?.focus())
       return
     }
+    if (!needsOutcomeCheck) setFailure(null)
     setReview({ assetId: selected.asset.id, accountName: selected.asset.name || selected.asset.externalId,
       pageName: page?.name || page?.externalId || '', profileName: profile?.name || profile?.externalId || '', request: buildMetaAdRequest(effectiveValues), image: values.imageSource === 'upload' ? uploadedImage : null })
-    window.scrollTo({ top: 0, behavior: 'instant' })
-    mainTitle.current?.focus()
+  }
+
+  function closeReview() {
+    if (pending.current) return
+    setReview(null)
+    requestAnimationFrame(() => document.getElementById('ad-review-trigger')?.focus())
   }
 
   async function submitAd() {
@@ -155,19 +166,20 @@ export default function MetaAdCreatePage() {
     setRetryReady(false)
     try {
       const created = await createMetaAd(Number(workspaceId), review.assetId, review.request)
-      if (active.current) setResult(created)
+      if (active.current) { setResult(created); void modal.success({ title: '광고 등록 완료', message: `${created.message}\n등록된 광고는 일시정지 상태입니다. 생성된 항목과 상태를 확인해 주세요.` }) }
     } catch (caught: unknown) {
       if (active.current) {
-        setFailure({ message: caught instanceof ApiError ? caught.message : '등록 결과를 확인하지 못했습니다. Meta 광고 관리자에서 생성 여부를 확인해 주세요.',
+        const failure = { message: caught instanceof ApiError ? caught.message : '등록 결과를 확인하지 못했습니다. Meta 광고 관리자에서 생성 여부를 확인해 주세요.',
           outcome: caught instanceof MetaAdCreationError ? caught.outcome : null,
-          unknown: caught instanceof MetaAdCreationError ? caught.outcomeUnknown : !(caught instanceof ApiError) })
+          unknown: caught instanceof MetaAdCreationError ? caught.outcomeUnknown : !(caught instanceof ApiError) }
+        setFailure(failure)
+        setReview(null)
+        void modal.error({ title: failure.unknown ? '광고 등록 결과 확인 필요' : '광고 등록 실패', message: failure.message })
       }
     } finally {
       pending.current = false
       if (active.current) {
         setBusy(false)
-        window.scrollTo({ top: 0, behavior: 'instant' })
-        mainTitle.current?.focus()
       }
     }
   }
@@ -200,7 +212,7 @@ export default function MetaAdCreatePage() {
         </> : <><DetailHint>입력과 광고 등록 권한을 확인해 주세요. 권한이 부족하면 자산 편집에서 Meta 계정을 재인증할 수 있습니다.</DetailHint><Actions><DetailSecondaryButton type="button" onClick={() => { setReview(null); setFailure(null) }}>입력 수정</DetailSecondaryButton><BackLink to={assetsPath}>자산 편집·재인증</BackLink></Actions></>}
       </StackBody></DetailPanel> : null}
 
-      {!blocked && review ? <DetailPanel><PanelHeading><h2>등록 내용 확인</h2><DetailBadge $tone="primary">일시정지 상태로 등록</DetailBadge></PanelHeading><StackBody>
+      {!blocked && review ? <Modal open title="등록 내용 확인" description="선택한 광고 계정에 캠페인·광고세트·광고를 일시정지 상태로 생성합니다." variant="confirm" size="lg" busy={busy} onClose={closeReview}><StackBody>
         <ReviewList>
           <div><dt>광고 계정</dt><dd>{review.accountName}</dd></div>
           <div><dt>캠페인 / 목표</dt><dd>{review.request.campaign.name} / {review.request.campaign.objective === 'OUTCOME_SALES' ? '판매' : '트래픽'}</dd></div>
@@ -220,9 +232,9 @@ export default function MetaAdCreatePage() {
         </ReviewList>
         <DetailHint>캠페인·광고세트·소재·광고를 새로 생성합니다. 예산은 입력한 최소 화폐 단위 그대로 전달되며, 자동으로 활성화하지 않습니다.</DetailHint>
         {busy ? <DetailStatus role="status">광고를 등록하는 중입니다. 결과가 나올 때까지 기다려 주세요.</DetailStatus> : null}
-        <Actions><DetailSecondaryButton type="button" disabled={busy} onClick={() => setReview(null)}>입력 수정</DetailSecondaryButton><DetailPrimaryButton type="button" onClick={() => void submitAd()} disabled={busy || Boolean(failure && !retryReady)}>{busy ? '등록 중…' : '일시정지 상태로 등록'}</DetailPrimaryButton></Actions>
-      </StackBody></DetailPanel> : !blocked ? <Form onSubmit={prepareReview} noValidate>
-        {studioOutputId && <StudioImportPanel key={`${imageScope}:${studioOutputId}`} workspaceId={Number(workspaceId)} outputId={studioOutputId} disabled={!selected || selected.connection.requiresReauth || busy || imageUploading} applied={uploadedImage?.studioOutputId === Number(studioOutputId)} onApply={applyStudioImage} />}
+        <Actions><DetailSecondaryButton type="button" disabled={busy} onClick={closeReview}>입력 수정</DetailSecondaryButton><DetailPrimaryButton type="button" onClick={() => void submitAd()} disabled={busy || Boolean(failure && !retryReady)}>{busy ? '등록 중…' : '일시정지 상태로 등록'}</DetailPrimaryButton></Actions>
+      </StackBody></Modal> : !blocked ? <Form onSubmit={prepareReview} noValidate>
+        {studioOutputId && <StudioImportPanel key={`${imageScope}:${studioOutputId}`} workspaceId={Number(workspaceId)} outputId={studioOutputId} expectedKind="AD_IMAGE" disabled={!selected || selected.connection.requiresReauth || busy || imageUploading} applied={uploadedImage?.studioOutputId === Number(studioOutputId)} onApply={applyStudioImage} />}
         <DetailPanel><PanelHeading><h2>광고 계정 선택</h2><DetailBadge>등록 준비</DetailBadge></PanelHeading><StackBody>
           <AccountLabel htmlFor="ad-create-account">광고 계정<select id="ad-create-account" value={assetIdParam} disabled={busy || imageUploading} onChange={(event) => changeAccount(event.target.value)} aria-invalid={Boolean(accountError)} aria-describedby={accountError ? 'ad-create-account-error' : undefined}>
             <option value="">광고 계정을 선택해 주세요</option>
@@ -288,7 +300,7 @@ export default function MetaAdCreatePage() {
             </ImageField>
           } />
           {Object.keys(errors).length > 0 ? <DetailAlert role="alert">입력 항목을 확인해 주세요. 표시된 오류를 수정하면 등록 내용을 확인할 수 있습니다.</DetailAlert> : null}
-          <SubmitBar><DetailHint>{imageUploading ? '이미지 업로드가 완료되면 등록 내용을 확인할 수 있습니다.' : '다음 화면에서 등록 내용을 확인합니다. 광고는 일시정지 상태로 생성됩니다.'}</DetailHint><DetailPrimaryButton type="submit" disabled={busy || imageUploading}>등록 내용 확인</DetailPrimaryButton></SubmitBar>
+          <SubmitBar><DetailHint>{imageUploading ? '이미지 업로드가 완료되면 등록 내용을 확인할 수 있습니다.' : '등록 내용을 확인한 뒤 생성합니다. 광고는 일시정지 상태로 등록됩니다.'}</DetailHint><DetailPrimaryButton id="ad-review-trigger" type="submit" disabled={busy || imageUploading}>등록 내용 확인</DetailPrimaryButton></SubmitBar>
         </> : null}
       </Form> : null}
     </>}

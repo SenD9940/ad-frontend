@@ -1,3 +1,4 @@
+import { useErrorModal } from '../components/common/useErrorModal'
 import { useEffect, useState } from 'react'
 import { adminGet } from './api'
 
@@ -5,6 +6,7 @@ export function useResource<T>(path: string) {
   const [revision, setRevision] = useState(0)
   const key = `${path}|${revision}`
   const [state, setState] = useState<{ key: string; data?: T; error?: string }>({ key: '' })
+  useErrorModal(state.key === key ? state.error : undefined, '운영 정보를 불러오지 못했습니다')
   useEffect(() => {
     const controller = new AbortController()
     adminGet<T>(path, controller.signal).then(data => {

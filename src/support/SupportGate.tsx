@@ -1,3 +1,4 @@
+import { useErrorModal } from '../components/common/useErrorModal'
 import { useEffect, useState, type ReactNode } from 'react'
 import { useLocation } from 'react-router-dom'
 import http, { ApiError } from '../api/http'
@@ -16,6 +17,7 @@ function ActiveSupport({ session, children }: { session: SupportGrant; children:
   const [verified, setVerified] = useState(false)
   const [invalid, setInvalid] = useState(false)
   const [error, setError] = useState('')
+  useErrorModal(error, '기술 지원 접속 확인')
   const [pending, setPending] = useState(false)
   useEffect(() => {
     let stopped = false

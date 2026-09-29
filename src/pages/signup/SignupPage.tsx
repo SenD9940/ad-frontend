@@ -1,7 +1,7 @@
 import { Link, useLocation } from 'react-router-dom'
 import styled from 'styled-components'
 import {
-  Eyebrow, Field, FieldError, Form, FormAlert, Hint, Input, Label,
+  Eyebrow, Field, FieldError, Form, Hint, Input, Label,
   LabelRow, Lead, Submit, SwitchAuth, Title, TogglePassword,
 } from '../../components/auth/AuthFormUI'
 import { useSignup } from '../../hooks/useSignup'
@@ -23,7 +23,6 @@ export default function SignupPage() {
     errorId,
     values,
     errors,
-    formError,
     submitting,
     showPassword,
     completedEmail,
@@ -69,11 +68,6 @@ export default function SignupPage() {
           <RequiredNote>주소 외 필수 입력</RequiredNote>
         </CardHeading>
         <Form onSubmit={handleSubmit} noValidate aria-labelledby={`${formId}-title`} aria-busy={submitting}>
-          {formError ? (
-            <FormAlert id={`${formId}-form-error`} role="alert">
-              {formError}
-            </FormAlert>
-          ) : null}
 
           <Section>
             <SectionLegend><SectionNumber>01</SectionNumber>계정 정보</SectionLegend>

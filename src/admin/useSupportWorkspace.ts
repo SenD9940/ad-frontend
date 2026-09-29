@@ -1,3 +1,4 @@
+import { useErrorModal } from '../components/common/useErrorModal'
 import { useEffect, useState } from 'react'
 import { adminGet } from './api'
 import type { AdminUser, Workspace } from './types'
@@ -9,6 +10,7 @@ export function useSupportWorkspace(workspaceId: number | null) {
   const key = `${workspaceId}:${revision}`
   const [state, setState] = useState<{ key: string; data?: Selection; error?: string }>({ key: '' })
 
+  useErrorModal(workspaceId !== null && state.key === key ? state.error : undefined, '지원 대상을 확인하지 못했습니다')
   useEffect(() => {
     if (workspaceId === null) return
     const controller = new AbortController()

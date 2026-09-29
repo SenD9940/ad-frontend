@@ -1,0 +1,10 @@
+export type ImwebCapabilities = { enabled: boolean; disabledReason: string | null }
+export type ImwebUnit = { unitCode: string; name: string; currency: string; storeUrl: string | null; selected: boolean }
+export type ImwebStore = { assetId: number; connectionId: number; siteCode: string; unitCode: string; name: string; storeUrl: string | null; currency: string; connectionName: string | null; requiresReauth: boolean }
+export type ImwebProduct = { productId: string; name: string; status: string; imageUrl: string | null; salePrice: number | null; originalPrice: number | null; stockQuantity: number | null }
+export type ImwebProducts = { assetId: number; unitCode: string; items: ImwebProduct[]; page: number; size: number; hasNext: boolean; totalElements: number | null; fetchedAt: string }
+export type ImwebSalesSummary = { paymentAmount: number; refundedAmount: number; remainingPaymentAmount: number; paidOrderCount: number; orderCount: number; averageOrderAmount: number }
+export type ImwebSales = { assetId: number; unitCode: string; since: string; until: string; timeZone: 'Asia/Seoul'; basis: 'ORDER_CREATED'; currency: string; summary: ImwebSalesSummary; daily: Array<ImwebSalesSummary & { date: string }>; complete: true; fetchedAt: string; notice: string }
+export type ImwebProductOptions = { categories: Array<{ code: string; name: string }>; currency: string; unitCode: string; enabled?: boolean; disabledReason?: string | null }
+export type ImwebProductRequest = { name: string; categoryCode: string; salePrice: number; originalPrice: number; stockQuantity: number; detailContent: string; studioOutputId?: number }
+export type ImwebProductResult = { productId: string; productCode: string | null; status: 'CREATED' | 'DETAIL_PENDING'; detailApplied: boolean; notice: string }
